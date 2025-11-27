@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+imap-tools
+pandas
+pydantic
+python-multipart
+email-validator
