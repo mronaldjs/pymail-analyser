@@ -3,6 +3,8 @@ export interface IMAPCredentials {
   email: string;
   password: string;
   days_limit?: number;
+  start_date?: string; // ISO format YYYY-MM-DD
+  end_date?: string;   // ISO format YYYY-MM-DD
 }
 
 export interface SenderStats {

@@ -36,5 +36,15 @@ async def delete_emails(request: DeleteRequest):
         print(f"Error deleting emails: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/archive")
+async def archive_emails(request: DeleteRequest):
+    try:
+        analyzer = EmailAnalyzer(request.credentials)
+        result = analyzer.archive_emails(request.sender_emails)
+        return result
+    except Exception as e:
+        print(f"Error archiving emails: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -11,10 +11,14 @@ class EmailAnalyzer:
     def analyze(self) -> AnalysisResponse:
         # 1. Connect to IMAP
         with MailBox(self.credentials.host).login(self.credentials.email, self.credentials.password) as mailbox:
-            # 2. Fetch headers from last X days
-            # We only need specific headers to save bandwidth
-            days = self.credentials.days_limit if self.credentials.days_limit else 30
-            criteria = A(date_gte=date.today() - timedelta(days=days))
+            # 2. Fetch headers - support both days_limit and custom date range
+            if self.credentials.start_date and self.credentials.end_date:
+                # Custom date range
+                criteria = A(date_gte=self.credentials.start_date, date_lt=self.credentials.end_date)
+            else:
+                # Default to days_limit
+                days = self.credentials.days_limit if self.credentials.days_limit else 30
+                criteria = A(date_gte=date.today() - timedelta(days=days))
             
             # Fetching messages
             messages = []
@@ -121,3 +125,39 @@ class EmailAnalyzer:
                     deleted_count += len(uids)
         
         return {"deleted": deleted_count}
+
+    def archive_emails(self, sender_emails: List[str]) -> Dict[str, int]:
+        archived_count = 0
+        with MailBox(self.credentials.host).login(self.credentials.email, self.credentials.password) as mailbox:
+            # Try to find the Archive/All Mail folder
+            archive_folder = None
+            possible_archive_names = ['[Gmail]/All Mail', '[Gmail]/Todos os e-mails', 'Archive', 'Arquivo', 'All Mail']
+            
+            # Get list of folders
+            folders = [f.name for f in mailbox.folder.list()]
+            
+            for name in possible_archive_names:
+                if name in folders:
+                    archive_folder = name
+                    break
+            
+            for sender in sender_emails:
+                # Find messages from this sender in INBOX
+                mailbox.folder.set('INBOX')
+                criteria = A(from_=sender)
+                
+                # Fetch uids to archive
+                uids = [msg.uid for msg in mailbox.fetch(criteria, headers_only=True)]
+                
+                if uids:
+                    if archive_folder:
+                        # Move to Archive/All Mail
+                        mailbox.move(uids, archive_folder)
+                    else:
+                        # If no archive folder exists, just remove from INBOX (archives in Gmail)
+                        # Remove the \Inbox label which effectively archives
+                        mailbox.flag(uids, ['\\Seen'], False)
+                    
+                    archived_count += len(uids)
+        
+        return {"archived": archived_count}
