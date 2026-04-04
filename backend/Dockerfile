@@ -1,24 +1,25 @@
-# Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
-# Set the working directory in the container
-WORKDIR /app
-
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
-
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application code into a 'backend' directory
-# This ensures imports like 'from backend.models' work correctly
-COPY . /app/backend
-
-# Make port 8000 available to the world outside this container
-EXPOSE 8000
-
-# Define environment variable
+# Evita que o Python gere arquivos .pyc e permite logs em tempo real
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 ENV PYTHONPATH=/app
 
-# Run app.py when the container launches
+WORKDIR /app
+
+# Instalando dependências de sistema necessárias para pandas/numpy
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copia apenas o requirements primeiro para aproveitar o cache do Docker
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia o código para dentro de uma subpasta 'backend' para manter 
+# compatibilidade com os imports 'from backend.xxx'
+COPY . /app/backend/
+
+EXPOSE 8000
+
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

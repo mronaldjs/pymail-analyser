@@ -1,7 +1,10 @@
 fastapi
 uvicorn
 imap-tools
+dnspython
 pandas
 pydantic
 python-multipart
 email-validator
+pytest
+pytest-mock

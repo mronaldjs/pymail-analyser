@@ -7,12 +7,21 @@ export const EMAIL_PROVIDERS: Record<string, string> = {
   'yahoo.com.br': 'imap.mail.yahoo.com',
   'protonmail.com': 'imap.protonmail.com',
   'pm.me': 'imap.protonmail.com',
-  'ufg.br': 'imap.gmail.com', // Seu domínio corporativo
+  'ufg.br': 'imap.gmail.com',
+  'discente.ufg.br': 'imap.gmail.com',
 };
 
 export function inferIMAPHost(email: string): string | null {
   const domain = email.split('@')[1]?.toLowerCase();
-  return domain ? EMAIL_PROVIDERS[domain] || null : null;
+  if (!domain) return null;
+  
+  // Check exact domain
+  if (EMAIL_PROVIDERS[domain]) return EMAIL_PROVIDERS[domain];
+
+  // Fallback for some common patterns
+  if (domain.endsWith('.ufg.br')) return 'imap.gmail.com';
+  
+  return null;
 }
 
 export function getProviderName(email: string): string {
@@ -29,7 +38,16 @@ export function getProviderName(email: string): string {
     'protonmail.com': 'ProtonMail',
     'pm.me': 'ProtonMail',
     'ufg.br': 'Gmail (UFG)',
+    'discente.ufg.br': 'Gmail (UFG Discente)',
   };
   
-  return providerMap[domain] || domain;
+  if (providerMap[domain]) return providerMap[domain];
+
+  // Friendly name for generic institutional emails
+  if (domain.endsWith('.br')) {
+    if (domain.includes('ufg')) return `UFG (${domain})`;
+    if (domain.includes('edu')) return `Institucional (${domain})`;
+  }
+
+  return domain;
 }

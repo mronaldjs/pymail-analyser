@@ -1,3 +1,15 @@
+export interface DomainReputation {
+  primary_domain?: string;
+  checked_domains?: string[];
+  mx?: boolean;
+  spf?: string;
+  dmarc?: string;
+  dns_trust?: number;
+  summary_pt?: string;
+  virustotal_malicious?: number;
+  virustotal_suspicious?: number;
+}
+
 export interface IMAPCredentials {
   host: string;
   email: string;
@@ -10,9 +22,14 @@ export interface IMAPCredentials {
 export interface SenderStats {
   sender_name: string;
   sender_email: string;
+  source_key?: string;
+  sender_emails?: string[];
   email_count: number;
   open_rate: number;
   spam_score: number;
+  /** high | medium | low — estimativa de risco de spam vs remetente oficial */
+  spam_risk?: string;
+  domain_reputation?: DomainReputation;
   unsubscribe_link?: string;
 }
 

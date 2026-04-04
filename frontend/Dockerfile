@@ -1,21 +1,24 @@
 FROM node:20-alpine
 
-# Install libc6-compat for Next.js/Turbopack on Alpine
-RUN apk add --no-cache libc6-compat
+# libc6-compat é essencial para Next.js no Alpine
+# Adicionado python3, make e g++ caso haja dependências nativas
+RUN apk add --no-cache libc6-compat python3 make g++
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copiar arquivos de dependência
 COPY package*.json ./
 
-# Install dependencies
+# Instalação de dependências
 RUN npm install
 
-# Copy the rest of the application code
+# Copia o resto do código
 COPY . .
 
-# Expose port 3000
+# Desabilita telemetria do Next.js
+ENV NEXT_TELEMETRY_DISABLED 1
+
 EXPOSE 3000
 
-# Start the application in development mode
+# Em desenvolvimento usamos npm run dev
 CMD ["npm", "run", "dev"]

@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { IMAPCredentials, AnalysisResponse, SenderStats, DeleteRequest } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Dialog,
@@ -20,6 +19,30 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Trash2, MailX, LogOut, CheckCircle2, LayoutGrid, List, HelpCircle, ExternalLink, Archive } from 'lucide-react';
 import { inferIMAPHost, getProviderName } from '@/utils/emailProviders';
+import { buildBulkSenderEmails, filterBySources, getSenderKey } from '@/utils/senderSelection';
+
+function SpamRiskBadge({ risk }: { risk?: string }) {
+  if (!risk) return null;
+  if (risk === 'high') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100">
+        Spam provável
+      </span>
+    );
+  }
+  if (risk === 'low') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
+        Provável oficial
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+      Risco médio
+    </span>
+  );
+}
 
 export default function Home() {
   const [step, setStep] = useState<'email' | 'credentials'>('email');
@@ -36,16 +59,15 @@ export default function Home() {
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [actionType, setActionType] = useState<'delete' | 'archive'>('delete');
   const [helpModalOpen, setHelpModalOpen] = useState(false);
-  const [senderToAction, setSenderToAction] = useState<SenderStats | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [selectedSourceKeys, setSelectedSourceKeys] = useState<string[]>([]);
+  const [actionTargets, setActionTargets] = useState<SenderStats[]>([]);
   const [actionProgress, setActionProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionStatus, setActionStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-
-  const queryClient = useQueryClient();
 
   const analyzeMutation = useMutation({
     mutationFn: async (creds: IMAPCredentials) => {
@@ -64,28 +86,33 @@ export default function Home() {
   });
 
   const actionMutation = useMutation({
-    mutationFn: async ({ senderEmail, type }: { senderEmail: string, type: 'delete' | 'archive' }) => {
+    mutationFn: async ({ senderEmails, type, targetKeys }: { senderEmails: string[], type: 'delete' | 'archive', targetKeys: string[] }) => {
       setActionStatus('processing');
       const payload: DeleteRequest = {
         credentials,
-        sender_emails: [senderEmail]
+        sender_emails: senderEmails
       };
       const endpoint = type === 'delete' ? 'delete' : 'archive';
       await axios.post(`http://localhost:8000/${endpoint}`, payload);
-      return { senderEmail, type };
+      return { type, targetKeys };
     },
-    onSuccess: ({ senderEmail, type }) => {
+    onSuccess: ({ targetKeys }) => {
       if (data) {
         setData({
           ...data,
-          ignored_senders: data.ignored_senders.filter(s => s.sender_email !== senderEmail)
+          ignored_senders: data.ignored_senders.filter((s) => !targetKeys.includes(getSenderKey(s)))
         });
       }
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        targetKeys.forEach((key) => next.delete(key));
+        return next;
+      });
       setActionProgress(100);
       setActionStatus('success');
       setTimeout(() => {
         setActionModalOpen(false);
-        setSenderToAction(null);
+        setActionTargets([]);
         setIsProcessing(false);
         setActionProgress(0);
         setActionStatus('idle');
@@ -142,22 +169,74 @@ export default function Home() {
     }
   };
 
+  const allSenders = data?.ignored_senders || [];
+  const availableSources = Array.from(new Set(allSenders.map((s) => s.source_key || s.sender_email))).sort();
+  const visibleSenders = filterBySources(allSenders, selectedSourceKeys);
+
+  const selectedVisibleCount = visibleSenders.filter((sender) => selectedKeys.has(getSenderKey(sender))).length;
+  const allVisibleSelected = visibleSenders.length > 0 && selectedVisibleCount === visibleSenders.length;
+
   const confirmAction = (sender: SenderStats, type: 'delete' | 'archive') => {
-    setSenderToAction(sender);
+    setActionTargets([sender]);
+    setActionType(type);
+    setActionModalOpen(true);
+    setActionProgress(0);
+  };
+
+  const toggleSelection = (key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllVisible = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleSenders.forEach((sender) => next.delete(getSenderKey(sender)));
+      } else {
+        visibleSenders.forEach((sender) => next.add(getSenderKey(sender)));
+      }
+      return next;
+    });
+  };
+
+  const toggleSourceFilter = (sourceKey: string) => {
+    setSelectedSourceKeys((prev) => (
+      prev.includes(sourceKey) ? prev.filter((source) => source !== sourceKey) : [...prev, sourceKey]
+    ));
+  };
+
+  const confirmBulkAction = (type: 'delete' | 'archive') => {
+    const targets = allSenders.filter((sender) => selectedKeys.has(getSenderKey(sender)));
+    if (targets.length === 0) {
+      return;
+    }
+    setActionTargets(targets);
     setActionType(type);
     setActionModalOpen(true);
     setActionProgress(0);
   };
 
   const executeAction = () => {
-    if (senderToAction) {
+    if (actionTargets.length > 0) {
       setIsProcessing(true);
-      actionMutation.mutate({ senderEmail: senderToAction.sender_email, type: actionType });
+      const senderEmails = buildBulkSenderEmails(actionTargets);
+      const targetKeys = actionTargets.map((sender) => getSenderKey(sender));
+      actionMutation.mutate({ senderEmails, type: actionType, targetKeys });
     }
   };
 
   const handleAnalyze = () => {
     analyzeMutation.mutate(credentials);
+    setSelectedKeys(new Set());
+    setSelectedSourceKeys([]);
   };
 
   // Loading screen durante análise
@@ -240,25 +319,77 @@ export default function Home() {
           {/* Main Content - Grid or List */}
           <Card className="col-span-4">
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Principais Ofensores</CardTitle>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant={viewMode === 'list' ? 'default' : 'outline'}
-                    onClick={() => setViewMode('list')}
-                    className="cursor-pointer"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={viewMode === 'grid' ? 'default' : 'outline'}
-                    onClick={() => setViewMode('grid')}
-                    className="cursor-pointer"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <CardTitle>Principais Ofensores</CardTitle>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'list' ? 'default' : 'outline'}
+                      onClick={() => setViewMode('list')}
+                      className="cursor-pointer"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'grid' ? 'default' : 'outline'}
+                      onClick={() => setViewMode('grid')}
+                      className="cursor-pointer"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {availableSources.map((source) => (
+                    <Button
+                      key={source}
+                      size="sm"
+                      variant={selectedSourceKeys.includes(source) ? 'default' : 'outline'}
+                      onClick={() => toggleSourceFilter(source)}
+                      className="cursor-pointer"
+                    >
+                      {source}
+                    </Button>
+                  ))}
+                  {selectedSourceKeys.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedSourceKeys([])}
+                      className="cursor-pointer"
+                    >
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedKeys.size} selecionado(s) • {visibleSenders.length} visível(is)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => confirmBulkAction('archive')}
+                      disabled={selectedKeys.size === 0}
+                      className="cursor-pointer"
+                    >
+                      <Archive className="h-4 w-4 mr-1" /> Arquivar selecionados
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => confirmBulkAction('delete')}
+                      disabled={selectedKeys.size === 0}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Excluir selecionados
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -269,7 +400,15 @@ export default function Home() {
                   <table className="w-full caption-bottom text-sm">
                     <thead className="[&_tr]:border-b">
                       <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Remetente</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={allVisibleSelected}
+                            onChange={toggleAllVisible}
+                            aria-label="Selecionar todos visíveis"
+                          />
+                        </th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Remetente / risco</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Qtd</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Taxa de Abertura</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Pontuação Spam</th>
@@ -277,11 +416,30 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
-                      {data.ignored_senders.map((sender, i) => (
+                      {visibleSenders.map((sender, i) => (
                         <tr key={i} className="border-b transition-colors hover:bg-muted/50">
                           <td className="p-4 align-middle">
-                            <div className="font-medium">{sender.sender_name}</div>
-                            <div className="text-xs text-muted-foreground">{sender.sender_email}</div>
+                            <input
+                              type="checkbox"
+                              checked={selectedKeys.has(getSenderKey(sender))}
+                              onChange={() => toggleSelection(getSenderKey(sender))}
+                              aria-label={`Selecionar ${sender.sender_name}`}
+                            />
+                          </td>
+                          <td className="p-4 align-middle">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{sender.sender_name}</span>
+                              <SpamRiskBadge risk={sender.spam_risk} />
+                            </div>
+                            <div className="text-xs text-muted-foreground">{sender.source_key || sender.sender_email}</div>
+                            {sender.domain_reputation?.summary_pt && (
+                              <div
+                                className="text-xs text-muted-foreground/80 mt-1 max-w-md"
+                                title="Consulta DNS (MX/SPF/DMARC); VirusTotal apenas se VIRUSTOTAL_API_KEY estiver definida no servidor"
+                              >
+                                {sender.domain_reputation.summary_pt}
+                              </div>
+                            )}
                           </td>
                           <td className="p-4 align-middle">{sender.email_count}</td>
                           <td className="p-4 align-middle">
@@ -331,13 +489,24 @@ export default function Home() {
               ) : (
                 // GRID VIEW
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {data.ignored_senders.map((sender, i) => (
+                  {visibleSenders.map((sender, i) => (
                     <Card key={i} className="hover:shadow-lg transition-shadow">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-sm truncate">{sender.sender_name}</h3>
-                            <p className="text-xs text-muted-foreground truncate">{sender.sender_email}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-sm truncate">{sender.sender_name}</h3>
+                              <SpamRiskBadge risk={sender.spam_risk} />
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{sender.source_key || sender.sender_email}</p>
+                            {sender.domain_reputation?.summary_pt && (
+                              <p
+                                className="text-[10px] text-muted-foreground/80 mt-1 line-clamp-2"
+                                title="Consulta DNS (MX/SPF/DMARC); VirusTotal opcional no servidor"
+                              >
+                                {sender.domain_reputation.summary_pt}
+                              </p>
+                            )}
                           </div>
                           <div className="ml-2 flex-shrink-0">
                             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
@@ -345,6 +514,15 @@ export default function Home() {
                             </span>
                           </div>
                         </div>
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={selectedKeys.has(getSenderKey(sender))}
+                            onChange={() => toggleSelection(getSenderKey(sender))}
+                            aria-label={`Selecionar ${sender.sender_name}`}
+                          />
+                          Selecionar
+                        </label>
                         
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
@@ -404,7 +582,7 @@ export default function Home() {
               <DialogHeader>
                 <DialogTitle>{actionType === 'delete' ? 'Confirmar Exclusão' : 'Confirmar Arquivamento'}</DialogTitle>
                 <DialogDescription>
-                  Você está prestes a {actionType === 'delete' ? 'excluir' : 'arquivar'} todos os e-mails de <strong>{senderToAction?.sender_name}</strong> ({senderToAction?.sender_email}).
+                  Você está prestes a {actionType === 'delete' ? 'excluir' : 'arquivar'} e-mails de <strong>{actionTargets.length}</strong> fonte(s) selecionada(s).
                   {actionType === 'delete' ? ' Esta ação moverá os itens para a Lixeira.' : ' Os e-mails serão movidos para o arquivo.'}
                 </DialogDescription>
               </DialogHeader>
@@ -454,7 +632,7 @@ export default function Home() {
                   <div className="space-y-1">
                     <p className="font-semibold text-green-600">{actionType === 'delete' ? 'Exclusão' : 'Arquivamento'} concluído!</p>
                     <p className="text-sm text-muted-foreground">
-                      Os e-mails de {senderToAction?.sender_name} foram {actionType === 'delete' ? 'movidos para a Lixeira' : 'arquivados'}.
+                      Os e-mails selecionados foram {actionType === 'delete' ? 'movidos para a Lixeira' : 'arquivados'}.
                     </p>
                   </div>
                 </div>
