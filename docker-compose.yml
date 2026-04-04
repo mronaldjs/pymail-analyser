@@ -1,22 +1,22 @@
 services:
   backend:
-    build: ./backend
+    build: ./pymail-api
     container_name: pymail-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app/backend
+      - ./pymail-api:/app
     environment:
       - PYTHONPATH=/app
     restart: always
 
   frontend:
-    build: ./frontend
+    build: ./pymail-webapp
     container_name: pymail-frontend
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
+      - ./pymail-webapp:/app
       - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000

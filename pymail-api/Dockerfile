@@ -16,10 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o código para dentro de uma subpasta 'backend' para manter 
-# compatibilidade com os imports 'from backend.xxx'
-COPY . /app/backend/
+# Copia o código para /app
+COPY . /app/
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

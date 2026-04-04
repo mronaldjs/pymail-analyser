@@ -2,3 +2,29 @@
 .vscode/
 .idea/
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+venv/
+env/
+
+# Node/npm
+node_modules/
+npm-debug.log*
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+

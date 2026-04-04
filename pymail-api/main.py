@@ -1,15 +1,17 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from backend.models.schemas import IMAPCredentials, AnalysisResponse, DeleteRequest
-from backend.services.analyzer import EmailAnalyzer
+from models.schemas import IMAPCredentials, AnalysisResponse, DeleteRequest
+from services.analyzer import EmailAnalyzer
 import uvicorn
+import os
 
 app = FastAPI(title="Email Analysis API")
 
-# CORS Setup
+# CORS Setup - use environment variable or default to localhost
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Frontend URL
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,4 +49,4 @@ async def archive_emails(request: DeleteRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

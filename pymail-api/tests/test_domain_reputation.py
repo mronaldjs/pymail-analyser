@@ -2,7 +2,7 @@ import unittest
 import os
 import tempfile
 
-from backend.services.domain_reputation import (
+from services.domain_reputation import (
     dns_signals_to_trust,
     describe_domain_signals_pt,
     _cache_set,

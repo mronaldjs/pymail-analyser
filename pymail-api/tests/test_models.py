@@ -1,5 +1,5 @@
 import unittest
-from backend.models.schemas import IMAPCredentials, SenderStats
+from models.schemas import IMAPCredentials, SenderStats
 
 class TestSchemas(unittest.TestCase):
     def test_imap_credentials_validation(self):

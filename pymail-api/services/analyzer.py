@@ -2,13 +2,13 @@ from datetime import date, timedelta
 from typing import List, Dict, Any, Tuple, Optional
 import os
 from imap_tools import MailBox, A
-from backend.models.schemas import (
+from models.schemas import (
     IMAPCredentials,
     SenderStats,
     AnalysisResponse,
     DomainReputation,
 )
-from backend.services.domain_reputation import (
+from services.domain_reputation import (
     lookup_domain_signals,
     dns_signals_to_trust,
     virustotal_domain_flags,

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from backend.services.analyzer import EmailAnalyzer, normalize_source, _compute_rank_and_risk
-from backend.models.schemas import IMAPCredentials, AnalysisResponse
+from services.analyzer import EmailAnalyzer, normalize_source, _compute_rank_and_risk
+from models.schemas import IMAPCredentials, AnalysisResponse
 
 class TestEmailAnalyzer(unittest.TestCase):
     def setUp(self):
