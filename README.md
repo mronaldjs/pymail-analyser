@@ -6,6 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=flat-square&logo=docker)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![CI](https://github.com/mronaldjs/pymail-analyser/actions/workflows/ci.yml/badge.svg)](https://github.com/mronaldjs/pymail-analyser/actions/workflows/ci.yml)
 
 **PyMail Analyser** is an open-source tool designed to help you clean up and manage your email inbox. Through an intuitive interface, it analyzes your emails via IMAP, identifies "low-quality" senders (with high volume and low open rates), and allows you to take quick actions like archiving or bulk deleting messages.
 
@@ -30,6 +31,10 @@
 - **Tailwind CSS**: Modern and responsive styling.
 - **Shadcn/UI**: Polished UI components.
 - **React Query**: Async state management and API caching.
+
+## Screenshots
+
+> 📸 Coming soon! Add a screenshot of the inbox dashboard here.
 
 ## Getting Started
 

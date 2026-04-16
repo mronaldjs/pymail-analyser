@@ -37,7 +37,7 @@ class TestEmailAnalyzer(unittest.TestCase):
         self.assertEqual(risk_susp, "high")
         self.assertEqual(risk_off, "low")
 
-    @patch("backend.services.analyzer.MailBox")
+    @patch("services.analyzer.MailBox")
     def test_analyze_empty_inbox(self, mock_mailbox_class):
         # Setup mock mailbox with no messages
         mock_mailbox = mock_mailbox_class.return_value
@@ -52,8 +52,8 @@ class TestEmailAnalyzer(unittest.TestCase):
         self.assertEqual(result.health_score, 100)
         self.assertEqual(result.ignored_senders, [])
 
-    @patch("backend.services.analyzer.lookup_domain_signals")
-    @patch("backend.services.analyzer.MailBox")
+    @patch("services.analyzer.lookup_domain_signals")
+    @patch("services.analyzer.MailBox")
     def test_analyze_with_messages(self, mock_mailbox_class, mock_dns):
         mock_dns.return_value = {
             "mx": True,
@@ -98,8 +98,8 @@ class TestEmailAnalyzer(unittest.TestCase):
         self.assertEqual(senders["gmail"].open_rate, 100.0)
         self.assertEqual(senders["gmail"].sender_emails, ["friend@gmail.com"])
 
-    @patch("backend.services.analyzer.lookup_domain_signals")
-    @patch("backend.services.analyzer.MailBox")
+    @patch("services.analyzer.lookup_domain_signals")
+    @patch("services.analyzer.MailBox")
     def test_analyze_orders_suspicious_before_official(self, mock_mailbox_class, mock_dns):
         def dns_side_effect(domain, timeout=2.5):
             if domain.endswith(".xyz"):
@@ -135,8 +135,8 @@ class TestEmailAnalyzer(unittest.TestCase):
         self.assertIn("bogus", first.source_key or "")
         self.assertEqual(first.spam_risk, "high")
 
-    @patch("backend.services.analyzer.lookup_domain_signals")
-    @patch("backend.services.analyzer.MailBox")
+    @patch("services.analyzer.lookup_domain_signals")
+    @patch("services.analyzer.MailBox")
     def test_analyze_groups_linkedin_variants(self, mock_mailbox_class, mock_dns):
         mock_dns.return_value = {
             "mx": True,
@@ -174,7 +174,7 @@ class TestEmailAnalyzer(unittest.TestCase):
             "messages-noreply@linkedin.com",
         })
 
-    @patch("backend.services.analyzer.MailBox")
+    @patch("services.analyzer.MailBox")
     def test_delete_emails(self, mock_mailbox_class):
         mock_mailbox = mock_mailbox_class.return_value
         mock_mailbox.login.return_value.__enter__.return_value = mock_mailbox
@@ -206,6 +206,18 @@ class TestEmailAnalyzer(unittest.TestCase):
 
         self.assertEqual(result["deleted"], 2)
         mock_mailbox.move.assert_called_with(['1', '2'], 'Trash')
+
+    def test_delete_emails_empty_list(self):
+        """Test that delete_emails returns 0 when given empty list"""
+        analyzer = EmailAnalyzer(self.mock_credentials)
+        result = analyzer.delete_emails([])
+        self.assertEqual(result["deleted"], 0)
+
+    def test_delete_emails_whitespace_only(self):
+        """Test that delete_emails returns 0 when given only whitespace"""
+        analyzer = EmailAnalyzer(self.mock_credentials)
+        result = analyzer.delete_emails(["", "  ", "\t"])
+        self.assertEqual(result["deleted"], 0)
 
     def test_compute_rank_and_risk_ufg_official(self):
         # High spam score but official domain should yield low risk

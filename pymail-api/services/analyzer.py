@@ -187,9 +187,9 @@ class EmailAnalyzer:
                 days = self.credentials.days_limit if self.credentials.days_limit else 30
                 criteria = A(date_gte=date.today() - timedelta(days=days))
             
-            # Fetching messages
+            # Fetching messages (without bulk=True to ensure flags like SEEN are loaded)
             messages = []
-            for msg in mailbox.fetch(criteria, bulk=True):
+            for msg in mailbox.fetch(criteria):
                 sender_email = msg.from_values.email if msg.from_values else "unknown@unknown.com"
                 sender_name = msg.from_values.name if msg.from_values else "Unknown Sender"
                 messages.append({
@@ -357,6 +357,8 @@ class EmailAnalyzer:
         )
 
     def delete_emails(self, sender_emails: List[str]) -> Dict[str, int]:
+        if not sender_emails or not any(sender_emails):
+            return {"deleted": 0}
         sender_set = {sender.lower().strip() for sender in sender_emails if sender}
         if not sender_set:
             return {"deleted": 0}

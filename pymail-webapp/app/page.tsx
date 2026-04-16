@@ -20,20 +20,23 @@ import { Progress } from "@/components/ui/progress";
 import { Loader2, Trash2, MailX, LogOut, CheckCircle2, LayoutGrid, List, HelpCircle, ExternalLink, Archive } from 'lucide-react';
 import { inferIMAPHost, getProviderName } from '@/utils/emailProviders';
 import { buildBulkSenderEmails, filterBySources, getSenderKey } from '@/utils/senderSelection';
+import { cleanText } from '@/lib/cleanText';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 function SpamRiskBadge({ risk }: { risk?: string }) {
   if (!risk) return null;
   if (risk === 'high') {
     return (
       <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100">
-        Spam provável
+        Provavelmente spam
       </span>
     );
   }
   if (risk === 'low') {
     return (
       <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
-        Provável oficial
+        Provavelmente oficial
       </span>
     );
   }
@@ -72,7 +75,7 @@ export default function Home() {
   const analyzeMutation = useMutation({
     mutationFn: async (creds: IMAPCredentials) => {
       setIsLoading(true);
-      const response = await axios.post<AnalysisResponse>('http://localhost:8000/analyze', creds);
+      const response = await axios.post<AnalysisResponse>(`${API_BASE_URL}/analyze`, creds);
       return response.data;
     },
     onSuccess: (data) => {
@@ -93,7 +96,7 @@ export default function Home() {
         sender_emails: senderEmails
       };
       const endpoint = type === 'delete' ? 'delete' : 'archive';
-      await axios.post(`http://localhost:8000/${endpoint}`, payload);
+      await axios.post(`${API_BASE_URL}/${endpoint}`, payload);
       return { type, targetKeys };
     },
     onSuccess: ({ targetKeys }) => {
@@ -242,7 +245,7 @@ export default function Home() {
   // Loading screen durante análise
   if (isLoading) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-slate-800 p-4">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-slate-900 to-slate-800 p-4">
         <div className="flex flex-col items-center space-y-6">
           <div className="relative w-16 h-16">
             <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
@@ -342,29 +345,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {availableSources.map((source) => (
-                    <Button
-                      key={source}
-                      size="sm"
-                      variant={selectedSourceKeys.includes(source) ? 'default' : 'outline'}
-                      onClick={() => toggleSourceFilter(source)}
-                      className="cursor-pointer"
-                    >
-                      {source}
-                    </Button>
-                  ))}
-                  {selectedSourceKeys.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setSelectedSourceKeys([])}
-                      className="cursor-pointer"
-                    >
-                      Limpar filtros
-                    </Button>
-                  )}
-                </div>
+                {/* Filtros de fonte removidos: lista de tags eliminada por exibir muitos rótulos irrelevantes */}
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
@@ -428,16 +409,16 @@ export default function Home() {
                           </td>
                           <td className="p-4 align-middle">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium">{sender.sender_name}</span>
+                              <span className="font-medium">{cleanText(sender.sender_name)}</span>
                               <SpamRiskBadge risk={sender.spam_risk} />
                             </div>
-                            <div className="text-xs text-muted-foreground">{sender.source_key || sender.sender_email}</div>
+                            <div className="text-xs text-muted-foreground">{cleanText(sender.source_key || sender.sender_email)}</div>
                             {sender.domain_reputation?.summary_pt && (
                               <div
                                 className="text-xs text-muted-foreground/80 mt-1 max-w-md"
                                 title="Consulta DNS (MX/SPF/DMARC); VirusTotal apenas se VIRUSTOTAL_API_KEY estiver definida no servidor"
                               >
-                                {sender.domain_reputation.summary_pt}
+                                {cleanText(sender.domain_reputation.summary_pt)}
                               </div>
                             )}
                           </td>
@@ -498,17 +479,17 @@ export default function Home() {
                               <h3 className="font-semibold text-sm truncate">{sender.sender_name}</h3>
                               <SpamRiskBadge risk={sender.spam_risk} />
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{sender.source_key || sender.sender_email}</p>
+                            <p className="text-xs text-muted-foreground truncate">{cleanText(sender.source_key || sender.sender_email)}</p>
                             {sender.domain_reputation?.summary_pt && (
                               <p
                                 className="text-[10px] text-muted-foreground/80 mt-1 line-clamp-2"
                                 title="Consulta DNS (MX/SPF/DMARC); VirusTotal opcional no servidor"
                               >
-                                {sender.domain_reputation.summary_pt}
+                                {cleanText(sender.domain_reputation.summary_pt)}
                               </p>
                             )}
                           </div>
-                          <div className="ml-2 flex-shrink-0">
+                          <div className="ml-2 shrink-0">
                             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
                               {sender.spam_score}
                             </span>
@@ -582,7 +563,7 @@ export default function Home() {
               <DialogHeader>
                 <DialogTitle>{actionType === 'delete' ? 'Confirmar Exclusão' : 'Confirmar Arquivamento'}</DialogTitle>
                 <DialogDescription>
-                  Você está prestes a {actionType === 'delete' ? 'excluir' : 'arquivar'} e-mails de <strong>{actionTargets.length}</strong> fonte(s) selecionada(s).
+                  Você está prestes a {actionType === 'delete' ? 'excluir' : 'arquivar'} <strong>{actionTargets.reduce((sum, s) => sum + s.email_count, 0)}</strong> e-mail(is) de <strong>{actionTargets.length}</strong> fonte(s) selecionada(s).
                   {actionType === 'delete' ? ' Esta ação moverá os itens para a Lixeira.' : ' Os e-mails serão movidos para o arquivo.'}
                 </DialogDescription>
               </DialogHeader>
