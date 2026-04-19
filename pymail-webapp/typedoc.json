@@ -1,0 +1,9 @@
+{
+  "entryPoints": ["app/page.tsx", "lib/cleanText.ts", "utils/emailProviders.ts", "utils/senderSelection.ts"],
+  "out": "../docs/frontend/reference",
+  "plugin": ["typedoc-plugin-markdown"],
+  "hidePageHeader": true,
+  "hidePageTitle": true,
+  "readme": "none",
+  "githubPages": false
+}

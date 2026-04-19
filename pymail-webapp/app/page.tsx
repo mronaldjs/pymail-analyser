@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-import { IMAPCredentials, AnalysisResponse, SenderStats, DeleteRequest } from '@/types/api';
+import axios, { AxiosError } from 'axios';
+import { IMAPCredentials, AnalysisResponse, SenderStats, DeleteRequest, ApiErrorResponse } from '@/types/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,14 +24,21 @@ import { cleanText } from '@/lib/cleanText';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-function SpamRiskBadge({ risk }: { risk?: string }) {
-  if (!risk) return null;
-  if (risk === 'high') {
-    return (
-      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100">
-        Provavelmente spam
-      </span>
-    );
+function resolveApiErrorMessage(error: unknown, fallback: string): string {
+  const axiosError = error as AxiosError<ApiErrorResponse>;
+  const errorCode = axiosError.response?.data?.error_code;
+  const detail = axiosError.response?.data?.detail;
+
+  if (errorCode === 'IMAP_AUTH_FAILED') {
+    return 'Falha de autenticação IMAP. Verifique e-mail e senha de app.';
+  }
+
+  if (errorCode === 'IMAP_UNAVAILABLE') {
+  import { resolveApiErrorMessage } from "./resolveApiErrorMessage";
+    return 'Servidor IMAP indisponível no momento. Tente novamente em instantes.';
+  }
+
+  // ... função agora importada de ./resolveApiErrorMessage ...
   }
   if (risk === 'low') {
     return (
@@ -82,9 +89,10 @@ export default function Home() {
       setIsLoading(false);
       setData(data);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setIsLoading(false);
-      alert('Falha ao conectar: ' + (error.response?.data?.detail || error.message));
+      const message = resolveApiErrorMessage(error, 'Falha ao conectar com o servidor.');
+      alert('Falha ao conectar: ' + message);
     }
   });
 
@@ -96,23 +104,29 @@ export default function Home() {
         sender_emails: senderEmails
       };
       const endpoint = type === 'delete' ? 'delete' : 'archive';
-      await axios.post(`${API_BASE_URL}/${endpoint}`, payload);
-      return { type, targetKeys };
+      const response = await axios.post<{ not_archived?: number }>(`${API_BASE_URL}/${endpoint}`, payload);
+      return { type, targetKeys, notArchived: response.data?.not_archived || 0 };
     },
-    onSuccess: ({ targetKeys }) => {
-      if (data) {
+    onSuccess: ({ type, targetKeys, notArchived }) => {
+      const shouldRemoveFromList = type === 'delete' || notArchived === 0;
+      if (data && shouldRemoveFromList) {
         setData({
           ...data,
           ignored_senders: data.ignored_senders.filter((s) => !targetKeys.includes(getSenderKey(s)))
         });
       }
-      setSelectedKeys((prev) => {
-        const next = new Set(prev);
-        targetKeys.forEach((key) => next.delete(key));
-        return next;
-      });
+      if (shouldRemoveFromList) {
+        setSelectedKeys((prev) => {
+          const next = new Set(prev);
+          targetKeys.forEach((key) => next.delete(key));
+          return next;
+        });
+      }
       setActionProgress(100);
       setActionStatus('success');
+      if (type === 'archive' && notArchived > 0) {
+        alert('Alguns remetentes não foram arquivados porque a conta não expôs uma pasta de arquivo compatível.');
+      }
       setTimeout(() => {
         setActionModalOpen(false);
         setActionTargets([]);
@@ -121,9 +135,11 @@ export default function Home() {
         setActionStatus('idle');
       }, 1500);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setActionStatus('error');
-      alert(`Falha ao ${actionType === 'delete' ? 'excluir' : 'arquivar'}: ` + (error.response?.data?.detail || error.message));
+      const fallback = `Falha ao ${actionType === 'delete' ? 'excluir' : 'arquivar'} os e-mails selecionados.`;
+      const message = resolveApiErrorMessage(error, fallback);
+      alert(`Falha ao ${actionType === 'delete' ? 'excluir' : 'arquivar'}: ` + message);
       setIsProcessing(false);
       setTimeout(() => {
         setActionStatus('idle');
@@ -175,6 +191,10 @@ export default function Home() {
   const allSenders = data?.ignored_senders || [];
   const availableSources = Array.from(new Set(allSenders.map((s) => s.source_key || s.sender_email))).sort();
   const visibleSenders = filterBySources(allSenders, selectedSourceKeys);
+  const groupingMode = data?.source_grouping_mode === 'tenant' ? 'tenant' : 'provider';
+  const groupingHint = data?.source_grouping_mode === 'tenant'
+    ? 'Agrupamento detalhado ativo: domínios privados geram chaves por tenant (ex.: myblog.github.io -> myblog).'
+    : 'Agrupamento por provedor ativo: domínios privados tendem a ser agrupados pelo provedor (ex.: myblog.github.io -> github).';
 
   const selectedVisibleCount = visibleSenders.filter((sender) => selectedKeys.has(getSenderKey(sender))).length;
   const allVisibleSelected = visibleSenders.length > 0 && selectedVisibleCount === visibleSenders.length;
@@ -343,6 +363,15 @@ export default function Home() {
                       <LayoutGrid className="h-4 w-4" />
                     </Button>
                   </div>
+                </div>
+
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/40">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    Modo de agrupamento: {groupingMode === 'tenant' ? 'tenant (detalhado)' : 'provider (consolidado)'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {groupingHint}
+                  </p>
                 </div>
 
                 {/* Filtros de fonte removidos: lista de tags eliminada por exibir muitos rótulos irrelevantes */}
@@ -754,7 +783,7 @@ export default function Home() {
                     autoFocus
                   />
                   <p className="text-xs text-slate-500">
-                    Use uma "Senha de App" se tiver 2FA ativado
+                    Use uma senha de app se tiver 2FA ativado
                   </p>
                 </div>
 
@@ -868,8 +897,8 @@ export default function Home() {
               <ol className="text-sm space-y-1 list-decimal list-inside pl-2">
                 <li>Acesse Conta Google → Segurança</li>
                 <li>Ative Verificação em 2 etapas</li>
-                <li>Procure "Senhas de app"</li>
-                <li>Gere nova senha para "PyMail Analyser"</li>
+                <li>Procure Senhas de app</li>
+                <li>Gere nova senha para PyMail Analyser</li>
               </ol>
               <Button
                 variant="link"
@@ -885,8 +914,8 @@ export default function Home() {
               <h3 className="font-semibold">Outlook / Hotmail</h3>
               <ol className="text-sm space-y-1 list-decimal list-inside pl-2">
                 <li>Acesse Segurança da conta Microsoft</li>
-                <li>Vá em "Opções de segurança avançadas"</li>
-                <li>Clique em "Senhas de aplicativo"</li>
+                <li>Vá em Opções de segurança avançadas</li>
+                <li>Clique em Senhas de aplicativo</li>
                 <li>Crie nova senha</li>
               </ol>
               <Button
@@ -903,8 +932,8 @@ export default function Home() {
               <h3 className="font-semibold">Yahoo Mail</h3>
               <ol className="text-sm space-y-1 list-decimal list-inside pl-2">
                 <li>Acesse Segurança da conta Yahoo</li>
-                <li>Clique em "Gerar senha de app"</li>
-                <li>Escolha "Outro aplicativo"</li>
+                <li>Clique em Gerar senha de app</li>
+                <li>Escolha Outro aplicativo</li>
                 <li>Copie a senha (sem espaços)</li>
               </ol>
               <Button

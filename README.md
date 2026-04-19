@@ -23,7 +23,7 @@
 ### Backend (Python/FastAPI)
 - **FastAPI**: High-performance API.
 - **imap-tools**: Robust handling of IMAP connections.
-- **Pandas**: Email data processing and analysis.
+- **In-memory heuristics**: Fast sender scoring and grouping without heavy dataframe dependencies.
 - **Pydantic**: Schema and type validation.
 
 ### Frontend (Next.js/TypeScript)
@@ -42,6 +42,7 @@ The easiest way to run the project is using **Docker Compose**.
 
 ### Prerequisites
 - Docker and Docker Compose installed.
+- Node.js 20+ and npm 10+ (for running frontend tests and E2E outside Docker).
 - An email account with IMAP access enabled.
     - For **Gmail/Google Workspace** (including **UFG**), you MUST use [App Passwords](https://support.google.com/accounts/answer/185833).
 
@@ -62,6 +63,89 @@ The easiest way to run the project is using **Docker Compose**.
    - **Frontend**: [http://localhost:3000](http://localhost:3000)
    - **Backend (API)**: [http://localhost:8000](http://localhost:8000)
    - **API Documentation (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - **Healthcheck**: [http://localhost:8000/health](http://localhost:8000/health)
+   - **Readiness**: [http://localhost:8000/ready](http://localhost:8000/ready)
+### Observability & Request Tracing
+
+#### Readiness Endpoint
+
+O backend expõe o endpoint `/ready` para checagem de prontidão operacional (útil para orquestradores e healthchecks avançados):
+
+```
+GET /ready
+{
+   "status": "ready",
+   "source_grouping_mode": "provider" | "tenant"
+}
+```
+
+#### Propagação de request_id
+
+Todas as requisições HTTP aceitam o header `x-request-id` (opcional). Se enviado, o backend propaga esse valor em respostas de erro estruturadas (`error_code`). Caso não seja enviado, um UUID é gerado automaticamente. Isso facilita rastreamento de requisições e correlação de logs.
+
+Exemplo de resposta de erro:
+
+```
+{
+   "detail": "Falha de autenticação IMAP. Verifique e-mail e senha de app.",
+   "error_code": "IMAP_AUTH_FAILED",
+   "request_id": "seu-uuid-ou-header"
+}
+```
+
+### Running Tests
+
+From the repository root, run all tests with a single command:
+
+```bash
+make test
+```
+
+You can also run each suite separately:
+
+```bash
+make test-backend
+make test-frontend
+```
+
+Run the minimal end-to-end flow test (mocked API):
+
+```bash
+cd pymail-webapp
+npm run test:e2e
+```
+
+Or from root:
+
+```bash
+make test-e2e
+```
+
+If this is your first E2E run, install Playwright browser binaries:
+
+```bash
+cd pymail-webapp
+npx playwright install chromium
+```
+
+### Optional Backend Configuration
+
+You can control sender grouping behavior for domains under private suffixes (for example: `github.io`, `blogspot.com`):
+
+- `NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS=false` (default): groups by provider (`myblog.github.io` -> `github`)
+- `NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS=true`: groups by tenant (`myblog.github.io` -> `myblog`)
+
+This setting changes how `source_key` is generated and may affect how senders appear in bulk actions.
+
+Additional backend environment variables:
+
+- `ALLOWED_ORIGINS`: comma-separated CORS origins (default: `http://localhost:3000,http://localhost:8008`)
+- `VIRUSTOTAL_API_KEY`: enables optional VirusTotal enrichment
+- `DOMAIN_REPUTATION_CACHE_FILE`: custom cache file path for domain reputation data
+- `DOMAIN_REPUTATION_DNS_TTL_SECONDS`: TTL in seconds for DNS reputation cache
+- `DOMAIN_REPUTATION_VT_TTL_SECONDS`: TTL in seconds for VirusTotal cache
+
+Use [pymail-api/.env.example](pymail-api/.env.example) as a starting point for local configuration.
 
 ## Project Structure
 
@@ -94,6 +178,8 @@ Contributions are welcome! Feel free to open issues or submit pull requests. Ple
 - Documentation is updated accordingly
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+For release validation, follow [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
 
 ## License
 

@@ -1,0 +1,60 @@
+site_name: PyMail Analyser Documentation
+site_description: Unified documentation for the PyMail Analyser project (API & WebApp).
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Backend (API):
+      - Overview: backend/index.md
+      - API Reference (Swagger): backend/api_spec.md
+      - Code Documentation:
+          - Analyzer: backend/analyzer.md
+          - Domain Reputation: backend/reputation.md
+  - Frontend (WebApp):
+      - Overview: frontend/index.md
+      - Components: frontend/components.md
+      - Utilities: frontend/utils.md
+      - API Reference (Auto): 
+          - Modules: frontend/reference/modules.md
+  - Contributing: CONTRIBUTING.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [pymail-api]
+  - swagger-ui-tag
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

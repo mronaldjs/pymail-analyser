@@ -2,26 +2,48 @@ from datetime import date, timedelta
 from typing import List, Dict, Any, Tuple, Optional
 import os
 from imap_tools import MailBox, A
+import tldextract
 from models.schemas import (
+
     IMAPCredentials,
     SenderStats,
     AnalysisResponse,
     DomainReputation,
 )
+
 from services.domain_reputation import (
     lookup_domain_signals,
     dns_signals_to_trust,
     virustotal_domain_flags,
     describe_domain_signals_pt,
 )
+
 import re
 
+
+def _env_to_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _build_psl_extractor(include_private_domains: bool) -> tldextract.TLDExtract:
+    # Avoid first-use network fetch and rely on bundled PSL snapshot/cache.
+    return tldextract.TLDExtract(
+        suffix_list_urls=(),
+        include_psl_private_domains=include_private_domains,
+    )
+
+
+_INCLUDE_PSL_PRIVATE_DOMAINS = _env_to_bool("NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS", default=False)
+_PSL_EXTRACTOR = _build_psl_extractor(include_private_domains=_INCLUDE_PSL_PRIVATE_DOMAINS)
+_SOURCE_GROUPING_MODE = "tenant" if _INCLUDE_PSL_PRIVATE_DOMAINS else "provider"
 
 def _extract_domain(email: str) -> str:
     if not email or "@" not in email:
         return "unknown"
     return email.split("@", 1)[1].lower().strip()
-
 
 def normalize_source(sender_email: str, sender_name: str) -> str:
     email = (sender_email or "").lower().strip()
@@ -33,9 +55,11 @@ def normalize_source(sender_email: str, sender_name: str) -> str:
         return "linkedin"
 
     if domain and domain != "unknown":
-        parts = domain.split(".")
-        if len(parts) >= 2:
-            return parts[-2]
+        extracted = _PSL_EXTRACTOR(domain)
+        if extracted.domain:
+            return extracted.domain.lower().strip()
+        if extracted.suffix:
+            return extracted.suffix.lower().strip()
         return domain
 
     return "unknown"
@@ -128,6 +152,10 @@ def _compute_rank_and_risk(
     rank_score: maior = mais provável spam / menos confiável → ordenar no topo.
     spam_risk: high | medium | low para exibição.
     """
+    normalized_domain = _extract_domain(domain)
+    if normalized_domain == "unknown":
+        normalized_domain = (domain or "").lower().strip()
+    domain = normalized_domain
     official = _is_official_domain(domain)
     suspicious = _is_suspicious_domain(domain)
 
@@ -201,7 +229,12 @@ class EmailAnalyzer:
                 })
 
         if not messages:
-            return AnalysisResponse(total_emails_scanned=0, ignored_senders=[], health_score=100)
+            return AnalysisResponse(
+                total_emails_scanned=0,
+                ignored_senders=[],
+                health_score=100,
+                source_grouping_mode=_SOURCE_GROUPING_MODE,
+            )
 
         # 3. Single-pass aggregation (O(n)) using hash map
         grouped: Dict[str, Dict[str, Any]] = {}
@@ -353,13 +386,16 @@ class EmailAnalyzer:
         return AnalysisResponse(
             total_emails_scanned=len(messages),
             ignored_senders=ignored_senders,
-            health_score=health_score
+            health_score=health_score,
+            source_grouping_mode=_SOURCE_GROUPING_MODE,
         )
 
     def delete_emails(self, sender_emails: List[str]) -> Dict[str, int]:
-        if not sender_emails or not any(sender_emails):
-            return {"deleted": 0}
-        sender_set = {sender.lower().strip() for sender in sender_emails if sender}
+        sender_set = {
+            sender.lower().strip()
+            for sender in sender_emails
+            if sender and sender.strip()
+        }
         if not sender_set:
             return {"deleted": 0}
 
@@ -397,11 +433,16 @@ class EmailAnalyzer:
         return {"deleted": deleted_count}
 
     def archive_emails(self, sender_emails: List[str]) -> Dict[str, int]:
-        sender_set = {sender.lower().strip() for sender in sender_emails if sender}
+        sender_set = {
+            sender.lower().strip()
+            for sender in sender_emails
+            if sender and sender.strip()
+        }
         if not sender_set:
-            return {"archived": 0}
+            return {"archived": 0, "not_archived": 0}
 
         archived_count = 0
+        not_archived_count = 0
         with MailBox(self.credentials.host).login(self.credentials.email, self.credentials.password) as mailbox:
             # Try to find the Archive/All Mail folder
             archive_folder = None
@@ -427,9 +468,9 @@ class EmailAnalyzer:
                 if archive_folder:
                     # Move to Archive/All Mail
                     mailbox.move(uids, archive_folder)
+                    archived_count = len(uids)
                 else:
-                    # If no archive folder exists, fallback to delete from INBOX context
-                    mailbox.delete(uids)
-                archived_count = len(uids)
+                    # Keep operation non-destructive if archive folder is unavailable.
+                    not_archived_count = len(uids)
         
-        return {"archived": archived_count}
+        return {"archived": archived_count, "not_archived": not_archived_count}

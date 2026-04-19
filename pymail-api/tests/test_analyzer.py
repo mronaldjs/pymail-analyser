@@ -1,5 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
+import importlib
+import os
+import services.analyzer as analyzer_module
 from services.analyzer import EmailAnalyzer, normalize_source, _compute_rank_and_risk
 from models.schemas import IMAPCredentials, AnalysisResponse
 
@@ -19,6 +22,31 @@ class TestEmailAnalyzer(unittest.TestCase):
     def test_normalize_source_domain_fallback(self):
         source = normalize_source("promo@news.example.com", "Example News")
         self.assertEqual(source, "example")
+
+    def test_normalize_source_public_suffix_domain(self):
+        source = normalize_source("promo@news.company.co.uk", "Company News")
+        self.assertEqual(source, "company")
+
+    def test_normalize_source_private_suffix_disabled_uses_provider(self):
+        extractor = analyzer_module._build_psl_extractor(include_private_domains=False)
+        with patch.object(analyzer_module, "_PSL_EXTRACTOR", extractor):
+            source = normalize_source("alerts@myblog.github.io", "My Blog")
+        self.assertEqual(source, "github")
+
+    def test_normalize_source_private_suffix_enabled_uses_tenant(self):
+        extractor = analyzer_module._build_psl_extractor(include_private_domains=True)
+        with patch.object(analyzer_module, "_PSL_EXTRACTOR", extractor):
+            source = normalize_source("alerts@myblog.github.io", "My Blog")
+        self.assertEqual(source, "myblog")
+
+    def test_env_flag_controls_grouping_mode_on_module_load(self):
+        with patch.dict(os.environ, {"NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS": "true"}, clear=False):
+            reloaded = importlib.reload(analyzer_module)
+            self.assertTrue(reloaded._INCLUDE_PSL_PRIVATE_DOMAINS)
+            self.assertEqual(reloaded._SOURCE_GROUPING_MODE, "tenant")
+
+        restored = importlib.reload(analyzer_module)
+        self.assertEqual(restored._SOURCE_GROUPING_MODE, "provider")
 
     def test_compute_rank_and_risk_official_lower_than_suspicious(self):
         rank_susp, risk_susp = _compute_rank_and_risk(
@@ -51,6 +79,7 @@ class TestEmailAnalyzer(unittest.TestCase):
         self.assertEqual(result.total_emails_scanned, 0)
         self.assertEqual(result.health_score, 100)
         self.assertEqual(result.ignored_senders, [])
+        self.assertEqual(result.source_grouping_mode, analyzer_module._SOURCE_GROUPING_MODE)
 
     @patch("services.analyzer.lookup_domain_signals")
     @patch("services.analyzer.MailBox")
@@ -218,6 +247,65 @@ class TestEmailAnalyzer(unittest.TestCase):
         analyzer = EmailAnalyzer(self.mock_credentials)
         result = analyzer.delete_emails(["", "  ", "\t"])
         self.assertEqual(result["deleted"], 0)
+
+    @patch("services.analyzer.MailBox")
+    def test_archive_emails_without_archive_folder_does_not_delete(self, mock_mailbox_class):
+        mock_mailbox = mock_mailbox_class.return_value
+        mock_mailbox.login.return_value.__enter__.return_value = mock_mailbox
+        mock_mailbox.folder.set = MagicMock()
+
+        # No known archive folder available
+        mock_folder = MagicMock()
+        mock_folder.name = 'INBOX'
+        mock_mailbox.folder.list.return_value = [mock_folder]
+
+        class MockMsg:
+            def __init__(self, uid, email):
+                self.uid = uid
+                self.from_values = MagicMock()
+                self.from_values.email = email
+
+        mock_mailbox.fetch.return_value = [
+            MockMsg('1', 'spam@promo.com'),
+            MockMsg('2', 'other@site.com'),
+        ]
+
+        analyzer = EmailAnalyzer(self.mock_credentials)
+        result = analyzer.archive_emails(["spam@promo.com"])
+
+        self.assertEqual(result["archived"], 0)
+        self.assertEqual(result["not_archived"], 1)
+        mock_mailbox.move.assert_not_called()
+        mock_mailbox.delete.assert_not_called()
+
+    @patch("services.analyzer.MailBox")
+    def test_archive_emails_with_archive_folder_moves_messages(self, mock_mailbox_class):
+        mock_mailbox = mock_mailbox_class.return_value
+        mock_mailbox.login.return_value.__enter__.return_value = mock_mailbox
+        mock_mailbox.folder.set = MagicMock()
+
+        mock_folder = MagicMock()
+        mock_folder.name = 'Archive'
+        mock_mailbox.folder.list.return_value = [mock_folder]
+
+        class MockMsg:
+            def __init__(self, uid, email):
+                self.uid = uid
+                self.from_values = MagicMock()
+                self.from_values.email = email
+
+        mock_mailbox.fetch.return_value = [
+            MockMsg('1', 'spam@promo.com'),
+            MockMsg('2', 'other@site.com'),
+        ]
+
+        analyzer = EmailAnalyzer(self.mock_credentials)
+        result = analyzer.archive_emails(["spam@promo.com"])
+
+        self.assertEqual(result["archived"], 1)
+        self.assertEqual(result["not_archived"], 0)
+        mock_mailbox.move.assert_called_with(['1'], 'Archive')
+        mock_mailbox.delete.assert_not_called()
 
     def test_compute_rank_and_risk_ufg_official(self):
         # High spam score but official domain should yield low risk

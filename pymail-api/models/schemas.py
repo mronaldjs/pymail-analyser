@@ -15,6 +15,7 @@ class DomainReputation(BaseModel):
         le=1.0,
         description="Conservative aggregate (minimum among domain groups): -1 suspicious … +1 strong",
     )
+    summary_pt: Optional[str] = None
     summary_en: Optional[str] = None
     virustotal_malicious: Optional[int] = None
     virustotal_suspicious: Optional[int] = None
@@ -46,7 +47,32 @@ class AnalysisResponse(BaseModel):
     total_emails_scanned: int
     ignored_senders: List[SenderStats]
     health_score: int
+    source_grouping_mode: Optional[str] = Field(
+        None,
+        description="provider | tenant — granularity used to compute source_key",
+    )
 
 class DeleteRequest(BaseModel):
     credentials: IMAPCredentials
     sender_emails: List[str]
+
+
+class HealthResponse(BaseModel):
+    status: str = Field(..., description="API health status")
+    source_grouping_mode: Optional[str] = Field(
+        None,
+        description="provider | tenant — active source grouping mode",
+    )
+
+
+
+class ReadyResponse(BaseModel):
+    status: str = Field(..., description="API readiness status")
+    source_grouping_mode: Optional[str] = Field(
+        None,
+        description="provider | tenant — active source grouping mode",
+    )
+
+class ErrorResponse(BaseModel):
+    detail: str
+    error_code: str

@@ -37,9 +37,15 @@ export interface AnalysisResponse {
   total_emails_scanned: number;
   ignored_senders: SenderStats[];
   health_score: number;
+  source_grouping_mode?: 'provider' | 'tenant';
 }
 
 export interface DeleteRequest {
   credentials: IMAPCredentials;
   sender_emails: string[];
+}
+
+export interface ApiErrorResponse {
+  detail?: string;
+  error_code?: string;
 }
