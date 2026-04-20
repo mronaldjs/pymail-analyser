@@ -1,0 +1,38 @@
+╭─[3]─Contêineres──────────────────────────────╮╭─Registros - Estatísticas - Env - Config - Topo───────────────────────────────────────────────╮
+│running  pymail-backend  0.25% 8000->8000/tcp,││INFO:     Will watch for changes in these directories: ['/app']                               ▐
+│running  pymail-frontend 0.00% 3000->3000/tcp,││INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)                       ▐
+│                                              ││INFO:     Started reloader process [1] using StatReload                                       ▐
+│                                              ││INFO:     Started server process [9]                                                          ▐
+│                                              ││INFO:     Waiting for application startup.                                                    ▐
+│                                              ││INFO:     Application startup complete.                                                       ▐
+│                                              ││INFO:     172.18.0.1:55838 - "OPTIONS /analyze HTTP/1.1" 200 OK                               ▐
+│                                              ││Error analyzing inbox                                                                         ▐
+╰──────────────────────────────────────────────╯│Traceback (most recent call last):                                                            ▐
+╭─[4]─Imagens──────────────────────────────────╮│  File "/app/main.py", line 141, in analyze_inbox                                             ▐
+│ghcr.io/dockur/windows   5.14      533.02MB   ▐│    result = analyzer.analyze()                                                               ▐
+│node                     20-alpine 192.25MB   ▐│  File "/app/services/analyzer.py", line 208, in analyze                                      ▐
+│none                               192.46MB   ▐│    with MailBox(self.credentials.host).login(self.credentials.email,                         ▐
+│none                               1.89GB     ▐│self.credentials.password) as mailbox:                                                        ▐
+│none                               398.09MB   ▐│  File "/usr/local/lib/python3.10/site-packages/imap_tools/mailbox.py", line 356, in __init__ ▐
+│none                               834.07MB   ││    super().__init__()                                                                        ▐
+│none                               817.91MB   ││  File "/usr/local/lib/python3.10/site-packages/imap_tools/mailbox.py", line 32, in __init__  ▐
+╰──────────────────────────────────────────────╯│    self.client = self._get_mailbox_client()                                                  ▐
+╭─[5]─Volumes──────────────────────────────────╮│  File "/usr/local/lib/python3.10/site-packages/imap_tools/mailbox.py", line 362, in          ▐
+│local 08352444f4a2c4a741939d29baa472f8129a387b││_get_mailbox_client                                                                           ▐
+│local 360b1313256eaa10ca07d99f6a3ae9e99ba7045b││    return imaplib.IMAP4_SSL(                                                                 ▐
+│local 39c22e5e21eeb201f2d157665643b9c6bbc92a1a││  File "/usr/local/lib/python3.10/imaplib.py", line 1332, in __init__                         ▐
+│                                              ││    IMAP4.__init__(self, host, port, timeout)                                                 ▐
+│                                              ││  File "/usr/local/lib/python3.10/imaplib.py", line 205, in __init__                          ▐
+│                                              ││    self.open(host, port, timeout)                                                            ▐
+│                                              ││  File "/usr/local/lib/python3.10/imaplib.py", line 1345, in open                             ▐
+╰──────────────────────────────────────────────╯│    IMAP4.open(self, host, port, timeout)                                                     │
+╭─[6]─Redes────────────────────────────────────╮│  File "/usr/local/lib/python3.10/imaplib.py", line 315, in open                              │
+│bridge bridge                                 ││    self.sock = self._create_socket(timeout)                                                  │
+│host   host                                   ││  File "/usr/local/lib/python3.10/imaplib.py", line 1335, in _create_socket                   │
+│null   none                                   ││    sock = IMAP4._create_socket(self, timeout)                                                │
+│bridge pymail-analyser_default                ││  File "/usr/local/lib/python3.10/imaplib.py", line 305, in _create_socket                    │
+│bridge winboat_default                        ││    return socket.create_connection(address)                                                  │
+│                                              ││  File "/usr/local/lib/python3.10/socket.py", line 836, in create_connection                  │
+│                                              ││    for res in getaddrinfo(host, port, 0, SOCK_STREAM):                                       │
+╰──────────────────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────────────────╯
+PgUp/PgDn: rolar, b: ver comandos em massa, q: sair, x: menu, ← → ↑ ↓: navegar                                                      Doar 0.25.2 
