@@ -104,12 +104,15 @@ test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
   await page.getByLabel('Selecionar Promoções Diárias').check();
   await page.getByRole('button', { name: 'Arquivar selecionados' }).click();
   const archiveResponse = page.waitForResponse((response) =>
-    response.url().endsWith('/archive') && response.status() === 200,
+    response.url().includes('/archive') && response.status() === 200,
   );
   await page.getByRole('button', { name: 'Confirmar Arquivamento' }).click();
   await archiveResponse;
 
-  await expect(page.getByText('Arquivamento concluído!')).toBeVisible({
+  await expect(page.locator('text=Promoções Diárias')).toHaveCount(0, {
+    timeout: 15000,
+  });
+  await expect(page.getByRole('button', { name: 'Arquivar selecionados' })).toBeDisabled({
     timeout: 15000,
   });
 
