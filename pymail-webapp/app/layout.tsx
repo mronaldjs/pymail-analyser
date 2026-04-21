@@ -8,6 +8,12 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Email Analyser",
   description: "Analyze and clean your inbox",
+  manifest: "/favicon/site.webmanifest",
+  icons: [
+    { rel: "icon", url: "/favicon/favicon.ico" },
+    { rel: "icon", type: "image/svg+xml", url: "/favicon/favicon.svg" },
+    { rel: "apple-touch-icon", url: "/favicon/apple-touch-icon.png" },
+  ],
 };
 
 export default function RootLayout({
