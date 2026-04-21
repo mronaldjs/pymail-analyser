@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnalysisResponse, IMAPCredentials, SenderStats } from "@/types/api";
 import { DashboardHeader } from "./DashboardHeader";
@@ -74,8 +75,24 @@ export function Dashboard({
       ? "Agrupamento detalhado ativo: domínios privados geram chaves por tenant (ex.: myblog.github.io -> myblog)."
       : "Agrupamento por provedor ativo: domínios privados tendem a ser agrupados pelo provedor (ex.: myblog.github.io -> github).";
 
-  // Update data when action completes
-  if (lastActionResult && lastActionResult.shouldRemoveFromList) {
+  // Rastreia targetKeys já processados para evitar loops infinitos e garantir
+  // uma única remoção por ação — necessário porque o consumer (page.tsx) pode
+  // não resetar lastActionResult imediatamente.
+  const consumedRef = useRef<string>("");
+  useEffect(() => {
+    if (
+      !lastActionResult ||
+      !lastActionResult.shouldRemoveFromList ||
+      !lastActionResult.targetKeys ||
+      lastActionResult.targetKeys.length === 0
+    ) {
+      return;
+    }
+    const key = lastActionResult.targetKeys.join(",");
+    if (consumedRef.current === key) {
+      return;
+    }
+    consumedRef.current = key;
     const { targetKeys } = lastActionResult;
     setData({
       ...data,
@@ -83,7 +100,8 @@ export function Dashboard({
         (s) => !targetKeys.includes(getSenderKey(s)),
       ),
     });
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastActionResult]);
 
   const handleArchiveSelected = () => {
     const targets = allSenders.filter((sender) =>
