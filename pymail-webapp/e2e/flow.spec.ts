@@ -3,37 +3,53 @@ import { expect, test } from '@playwright/test';
 test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
   let archivePayload: unknown = null;
 
-  await page.route('**/analyze', async (route) => {
+  await page.route('**/count', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        total_emails_scanned: 3,
-        health_score: 82,
-        source_grouping_mode: 'provider',
-        ignored_senders: [
-          {
-            sender_name: 'Promoções Diárias',
-            sender_email: 'promo@news.example.com',
-            source_key: 'example',
-            sender_emails: ['promo@news.example.com'],
-            email_count: 2,
-            open_rate: 10,
-            spam_score: 18.5,
-            spam_risk: 'high',
+      body: JSON.stringify({ total: 3 }),
+    });
+  });
+
+  await page.route('**/analyze/stream', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/x-ndjson',
+      body:
+        JSON.stringify({ type: 'progress', phase: 'imap_fetch', fetched: 1 }) + '\n' +
+        JSON.stringify({ type: 'progress', phase: 'imap_fetch', fetched: 3 }) + '\n' +
+        JSON.stringify({ type: 'progress', phase: 'dns_lookup', checked: 1, total: 2 }) + '\n' +
+        JSON.stringify({ type: 'progress', phase: 'dns_lookup', checked: 2, total: 2 }) + '\n' +
+        JSON.stringify({
+          type: 'done',
+          result: {
+            total_emails_scanned: 3,
+            health_score: 82,
+            source_grouping_mode: 'provider',
+            ignored_senders: [
+              {
+                sender_name: 'Promoções Diárias',
+                sender_email: 'promo@news.example.com',
+                source_key: 'example',
+                sender_emails: ['promo@news.example.com'],
+                email_count: 2,
+                open_rate: 10,
+                spam_score: 18.5,
+                spam_risk: 'high',
+              },
+              {
+                sender_name: 'Alertas Oficiais',
+                sender_email: 'alerts@google.com',
+                source_key: 'google',
+                sender_emails: ['alerts@google.com'],
+                email_count: 1,
+                open_rate: 100,
+                spam_score: 1.2,
+                spam_risk: 'low',
+              },
+            ],
           },
-          {
-            sender_name: 'Alertas Oficiais',
-            sender_email: 'alerts@google.com',
-            source_key: 'google',
-            sender_emails: ['alerts@google.com'],
-            email_count: 1,
-            open_rate: 100,
-            spam_score: 1.2,
-            spam_risk: 'low',
-          },
-        ],
-      }),
+        }) + '\n',
     });
   });
 
