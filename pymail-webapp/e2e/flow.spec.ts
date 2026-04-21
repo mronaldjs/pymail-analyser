@@ -2,19 +2,40 @@ import { expect, test } from '@playwright/test';
 
 test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
   let archivePayload: unknown = null;
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
 
   await page.route('**/count', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders });
+      return;
+    }
+
     await route.fulfill({
       status: 200,
-      contentType: 'application/json',
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ total: 3 }),
     });
   });
 
   await page.route('**/analyze/stream', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders });
+      return;
+    }
+
     await route.fulfill({
       status: 200,
-      contentType: 'application/x-ndjson',
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/x-ndjson',
+      },
       body:
         JSON.stringify({ type: 'progress', phase: 'imap_fetch', fetched: 1 }) + '\n' +
         JSON.stringify({ type: 'progress', phase: 'imap_fetch', fetched: 3 }) + '\n' +
@@ -54,10 +75,18 @@ test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
   });
 
   await page.route('**/archive', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders });
+      return;
+    }
+
     archivePayload = route.request().postDataJSON();
     await route.fulfill({
       status: 200,
-      contentType: 'application/json',
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ archived: 1, not_archived: 0 }),
     });
   });
@@ -74,9 +103,15 @@ test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
 
   await page.getByLabel('Selecionar Promoções Diárias').check();
   await page.getByRole('button', { name: 'Arquivar selecionados' }).click();
+  const archiveResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/archive') && response.status() === 200,
+  );
   await page.getByRole('button', { name: 'Confirmar Arquivamento' }).click();
+  await archiveResponse;
 
-  await expect(page.getByText('Arquivamento concluído!')).toBeVisible();
+  await expect(page.getByText('Arquivamento concluído!')).toBeVisible({
+    timeout: 15000,
+  });
 
   expect(archivePayload).toEqual(
     expect.objectContaining({
