@@ -9,6 +9,7 @@ interface SendersListViewProps {
   senders: SenderStats[];
   selectedKeys: Set<string>;
   onToggleSelection: (key: string) => void;
+  onToggleAllVisible: (visibleSenders: SenderStats[], allVisibleSelected: boolean) => void;
   onUnsubscribe: (link: string) => void;
   onConfirmAction: (sender: SenderStats, action: "archive" | "delete") => void;
 }
@@ -17,9 +18,16 @@ export default function SendersListView({
   senders,
   selectedKeys,
   onToggleSelection,
+  onToggleAllVisible,
   onUnsubscribe,
   onConfirmAction,
 }: SendersListViewProps) {
+  const allVisibleSelected =
+    senders.length > 0 &&
+    senders.every((sender) => selectedKeys.has(getSenderKey(sender)));
+  const someVisibleSelected =
+    senders.some((sender) => selectedKeys.has(getSenderKey(sender)));
+
   return (
     <div className="relative w-full overflow-auto">
       <table className="w-full caption-bottom text-sm">
@@ -28,7 +36,10 @@ export default function SendersListView({
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
               <input
                 type="checkbox"
-                disabled
+                checked={allVisibleSelected}
+                aria-checked={someVisibleSelected && !allVisibleSelected ? "mixed" : undefined}
+                disabled={senders.length === 0}
+                onChange={() => onToggleAllVisible(senders, allVisibleSelected)}
                 aria-label="Selecionar todos visíveis"
               />
             </th>
@@ -49,16 +60,25 @@ export default function SendersListView({
             </th>
           </tr>
         </thead>
-        <tbody className="[&_tr:last-child]:border-0 cursor-pointer">
+        <tbody className="[&_tr:last-child]:border-0">
           {senders.map((sender, i) => (
             <tr
               key={i}
-              className="border-b transition-colors hover:bg-muted/50"
+              tabIndex={0}
+              className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+              onClick={() => onToggleSelection(getSenderKey(sender))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onToggleSelection(getSenderKey(sender));
+                }
+              }}
             >
               <td className="p-4 align-middle">
                 <input
                   type="checkbox"
                   checked={selectedKeys.has(getSenderKey(sender))}
+                  onClick={(event) => event.stopPropagation()}
                   onChange={() => onToggleSelection(getSenderKey(sender))}
                   aria-label={`Selecionar ${sender.sender_name}`}
                 />
@@ -103,7 +123,10 @@ export default function SendersListView({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => onUnsubscribe(sender.unsubscribe_link!)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onUnsubscribe(sender.unsubscribe_link!);
+                      }}
                       title={sender.unsubscribe_link}
                       className="cursor-pointer"
                     >
@@ -113,7 +136,10 @@ export default function SendersListView({
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => onConfirmAction(sender, "archive")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onConfirmAction(sender, "archive");
+                    }}
                     className="cursor-pointer"
                   >
                     <Archive className="h-4 w-4 mr-1" /> Arquivar
@@ -121,7 +147,10 @@ export default function SendersListView({
                   <Button
                     size="sm"
                     variant="destructive"
-                    onClick={() => onConfirmAction(sender, "delete")}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onConfirmAction(sender, "delete");
+                    }}
                     className="cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4 mr-1" /> Excluir

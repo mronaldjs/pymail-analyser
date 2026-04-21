@@ -31,9 +31,23 @@ export function SpamRiskBadge({ risk }: SpamRiskBadgeProps) {
     }
   };
 
+  const getRiskDescription = () => {
+    switch (risk) {
+      case "high":
+        return "Alto risco — muitos envios com baixa taxa de abertura ou domínio suspeito.";
+      case "medium":
+        return "Risco médio — sinais mistos, acompanhe o remetente.";
+      case "low":
+        return "Baixo risco — remetente provavelmente legítimo ou com boa interação.";
+      default:
+        return "Risco desconhecido.";
+    }
+  };
+
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getRiskStyles()}`}
+      title={getRiskDescription()}
     >
       {getRiskLabel()}
     </span>

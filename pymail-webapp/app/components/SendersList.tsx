@@ -7,6 +7,7 @@ interface SendersListProps {
   viewMode: "grid" | "list";
   selectedKeys: Set<string>;
   onToggleSelection: (key: string) => void;
+  onToggleAllVisible: (visibleSenders: SenderStats[], allVisibleSelected: boolean) => void;
   onUnsubscribe: (link: string) => void;
   onConfirmAction: (sender: SenderStats, action: "archive" | "delete") => void;
 }
@@ -16,6 +17,7 @@ export default function SendersList({
   viewMode,
   selectedKeys,
   onToggleSelection,
+  onToggleAllVisible,
   onUnsubscribe,
   onConfirmAction,
 }: SendersListProps) {
@@ -25,6 +27,7 @@ export default function SendersList({
         senders={senders}
         selectedKeys={selectedKeys}
         onToggleSelection={onToggleSelection}
+        onToggleAllVisible={onToggleAllVisible}
         onUnsubscribe={onUnsubscribe}
         onConfirmAction={onConfirmAction}
       />

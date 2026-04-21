@@ -6,6 +6,7 @@ import { inferIMAPHost, getProviderName } from "@/utils/emailProviders";
 import { EmailForm } from "./EmailForm";
 import { CredentialsForm } from "./CredentialsForm";
 import { HelpModal } from "./HelpModal";
+import { Lock } from "lucide-react";
 
 interface LoginScreenProps {
   onAnalyze: (credentials: IMAPCredentials) => void;
@@ -96,6 +97,28 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
             )}
           </CardContent>
         </Card>
+
+        <div className="mt-4 w-full max-w-md">
+          <div className="flex gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+            <Lock className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+            <div className="space-y-1 leading-relaxed">
+              <p className="font-semibold text-foreground">
+                Privacidade das suas credenciais
+              </p>
+              <p>
+                Suas credenciais IMAP são usadas <strong>apenas</strong> na
+                sessão atual para conectar ao seu servidor de e-mail.{" "}
+                <strong>Nada é salvo, armazenado ou compartilhado</strong> —
+                nem em banco, nem em cookies, nem em logs. Ao desconectar, os
+                dados são descartados da memória.
+              </p>
+              <p>
+                Recomendamos o uso de uma <strong>senha de aplicativo</strong>{" "}
+                (App Password) em vez da sua senha principal.
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
 
       <HelpModal open={helpModalOpen} onOpenChange={setHelpModalOpen} />

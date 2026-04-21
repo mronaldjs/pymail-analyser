@@ -24,7 +24,18 @@ export default function SendersGridView({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {senders.map((sender, i) => (
-        <Card key={i} className="hover:shadow-lg transition-shadow">
+        <Card
+          key={i}
+          tabIndex={0}
+          className="hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => onToggleSelection(getSenderKey(sender))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onToggleSelection(getSenderKey(sender));
+            }
+          }}
+        >
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
@@ -56,6 +67,7 @@ export default function SendersGridView({
               <input
                 type="checkbox"
                 checked={selectedKeys.has(getSenderKey(sender))}
+                onClick={(event) => event.stopPropagation()}
                 onChange={() => onToggleSelection(getSenderKey(sender))}
                 aria-label={`Selecionar ${sender.sender_name}`}
               />
@@ -84,7 +96,10 @@ export default function SendersGridView({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => onUnsubscribe(sender.unsubscribe_link!)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onUnsubscribe(sender.unsubscribe_link!);
+                  }}
                   className="flex-1 cursor-pointer"
                   title={sender.unsubscribe_link}
                 >
@@ -94,7 +109,10 @@ export default function SendersGridView({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => onConfirmAction(sender, "archive")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onConfirmAction(sender, "archive");
+                }}
                 className="flex-1 cursor-pointer"
               >
                 <Archive className="h-4 w-4 mr-1" /> Arq
@@ -102,7 +120,10 @@ export default function SendersGridView({
               <Button
                 size="sm"
                 variant="destructive"
-                onClick={() => onConfirmAction(sender, "delete")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onConfirmAction(sender, "delete");
+                }}
                 className="flex-1 cursor-pointer"
               >
                 <Trash2 className="h-4 w-4 mr-1" /> Del

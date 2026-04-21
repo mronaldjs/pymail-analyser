@@ -251,6 +251,64 @@ def _clean_unsubscribe_link(raw_link: Any) -> Any:
     return raw_link.strip("<>").split(",")[0].strip()
 
 
+# Pt/En keywords usados pelo fallback que varre corpos de e-mails quando o
+# header List-Unsubscribe não está presente.
+_UNSUB_KEYWORDS_RE = re.compile(
+    r"(unsubscribe|opt[-\s]?out|descadastrar|cancelar\s+inscri\w+|"
+    r"sair\s+da\s+lista|remover\s+da\s+lista|gerenciar\s+prefer\w+|"
+    r"manage\s+preferences|email\s+preferences)",
+    re.IGNORECASE,
+)
+
+# Captura <a href="..."> ... </a> mantendo href e texto âncora para match.
+_UNSUB_ANCHOR_RE = re.compile(
+    r'<a\b[^>]*?href\s*=\s*["\']([^"\']+)["\'][^>]*>(.{0,300}?)</a>',
+    re.IGNORECASE | re.DOTALL,
+)
+
+# URL solta em texto plano.
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+
+
+def _extract_unsubscribe_from_body(
+    html: Optional[str], text: Optional[str]
+) -> Optional[str]:
+    """Procura link de unsubscribe no corpo (HTML ou texto) do e-mail.
+
+    Estratégia:
+      1. Em HTML: varre <a href=...>texto</a> e aceita se o href ou o texto
+         âncora contiver uma palavra-chave de descadastro e o href for
+         http(s) ou mailto.
+      2. Em texto: procura uma URL próxima (±200 chars) a uma keyword.
+    """
+    if html:
+        for match in _UNSUB_ANCHOR_RE.finditer(html):
+            href = (match.group(1) or "").strip()
+            anchor_text = (match.group(2) or "").strip()
+            # Remove tags inline para comparar texto âncora limpo.
+            anchor_clean = re.sub(r"<[^>]+>", " ", anchor_text)
+            href_lower = href.lower()
+            keyword_hit = bool(
+                _UNSUB_KEYWORDS_RE.search(anchor_clean)
+                or _UNSUB_KEYWORDS_RE.search(href_lower)
+            )
+            if keyword_hit and (
+                href_lower.startswith(("http://", "https://", "mailto:"))
+            ):
+                return href
+
+    if text:
+        for m in _UNSUB_KEYWORDS_RE.finditer(text):
+            window_start = max(0, m.start() - 200)
+            window_end = min(len(text), m.end() + 200)
+            window = text[window_start:window_end]
+            url_match = _URL_RE.search(window)
+            if url_match:
+                return url_match.group(0).rstrip(".,);:\"'")
+
+    return None
+
+
 class EmailAnalyzer:
     def __init__(self, credentials: IMAPCredentials):
         self.credentials = credentials
@@ -366,6 +424,10 @@ class EmailAnalyzer:
                         "read_sum": 0,
                         "unsub_count": 0,
                         "unsubscribe_link": list_unsub,
+                        # UID da mensagem mais recente do grupo — usado pelo
+                        # fallback de body-scan quando falta List-Unsubscribe.
+                        "latest_uid": None,
+                        "latest_date": None,
                     }
                     grouped[source_key] = entry
 
@@ -379,6 +441,63 @@ class EmailAnalyzer:
                 entry["domains_set"].add(sender_domain)
                 if not entry["sender_name"] and sender_name:
                     entry["sender_name"] = sender_name
+
+                # Rastreia o UID da mensagem mais recente do grupo.
+                msg_date = getattr(msg, "date", None)
+                if entry["latest_date"] is None or (
+                    msg_date is not None and msg_date > entry["latest_date"]
+                ):
+                    entry["latest_date"] = msg_date
+                    entry["latest_uid"] = msg.uid
+
+            # 2.5. Fallback: varre o corpo da mensagem mais recente dos grupos
+            #      sem List-Unsubscribe, ainda dentro da conexão IMAP.
+            fallback_targets = [
+                (sk, e["latest_uid"])
+                for sk, e in grouped.items()
+                if not e["unsubscribe_link"] and e["latest_uid"]
+            ]
+            if fallback_targets:
+                if progress:
+                    progress(
+                        {
+                            "type": "progress",
+                            "phase": "unsub_scan",
+                            "checked": 0,
+                            "total": len(fallback_targets),
+                        }
+                    )
+                uid_to_key = {uid: sk for sk, uid in fallback_targets}
+                uid_list = list(uid_to_key.keys())
+                scanned = 0
+                try:
+                    for body_msg in mailbox.fetch(
+                        A(uid=",".join(uid_list)), mark_seen=False
+                    ):
+                        sk = uid_to_key.get(body_msg.uid)
+                        if not sk:
+                            continue
+                        found = _extract_unsubscribe_from_body(
+                            getattr(body_msg, "html", None),
+                            getattr(body_msg, "text", None),
+                        )
+                        if found:
+                            grouped[sk]["unsubscribe_link"] = found
+                        scanned += 1
+                        if progress and (
+                            scanned <= 10 or scanned % 5 == 0
+                        ):
+                            progress(
+                                {
+                                    "type": "progress",
+                                    "phase": "unsub_scan",
+                                    "checked": scanned,
+                                    "total": len(fallback_targets),
+                                }
+                            )
+                except Exception:
+                    # Fallback é best-effort: nunca deve derrubar a análise.
+                    pass
 
         # IMAP connection is now closed — all external I/O starts here.
         if progress:

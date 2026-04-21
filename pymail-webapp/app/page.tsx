@@ -41,6 +41,7 @@ export default function Home() {
     setSelectedKeys,
     selectedSourceKeys,
     toggleSelection,
+    toggleAllVisible,
     clearSelection,
   } = useSenderSelection();
 
@@ -54,14 +55,6 @@ export default function Home() {
     reset();
     clearSelection();
   };
-
-  // const handleUnsubscribe = (link: string) => {
-  //   if (link.startsWith("mailto:")) {
-  //     window.location.href = link;
-  //   } else {
-  //     window.open(link, "_blank");
-  //   }
-  // };
 
   const isValidHttpUrl = (link: string) => {
     try {
@@ -103,8 +96,26 @@ export default function Home() {
       return;
     }
 
-    if (link.startsWith("mailto:")) {
-      window.location.href = link;
+    if (link.toLowerCase().startsWith("mailto:")) {
+      // Descadastro via e-mail: abre o cliente de e-mail padrão do usuário.
+      // Usamos window.open em vez de window.location para evitar sair da
+      // página caso nenhum cliente esteja registrado.
+      const opened = window.open(link, "_self");
+      if (!opened) {
+        // Alguns browsers bloqueiam a abertura — tentamos copiar e avisar.
+        try {
+          navigator.clipboard?.writeText(link);
+          popUpAlert(
+            "Link mailto copiado. Envie um e-mail com esse destinatário para concluir o descadastro.",
+            "info",
+          );
+        } catch {
+          popUpAlert(
+            "Abra seu cliente de e-mail e envie para: " + link.slice(7),
+            "info",
+          );
+        }
+      }
       return;
     }
 
@@ -148,6 +159,7 @@ export default function Home() {
         selectedKeys={selectedKeys}
         selectedSourceKeys={selectedSourceKeys}
         onToggleSelection={toggleSelection}
+        onToggleAllVisible={toggleAllVisible}
         onDisconnect={handleDisconnect}
         actionModalOpen={actionModalOpen}
         setActionModalOpen={setActionModalOpen}

@@ -22,6 +22,7 @@ interface DashboardProps {
   selectedKeys: Set<string>;
   selectedSourceKeys: string[];
   onToggleSelection: (key: string) => void;
+  onToggleAllVisible: (visibleSenders: SenderStats[], allVisibleSelected: boolean) => void;
   onDisconnect: () => void;
   actionModalOpen: boolean;
   setActionModalOpen: (open: boolean) => void;
@@ -49,6 +50,7 @@ export function Dashboard({
   selectedKeys,
   selectedSourceKeys,
   onToggleSelection,
+  onToggleAllVisible,
   onDisconnect,
   actionModalOpen,
   setActionModalOpen,
@@ -130,6 +132,7 @@ export function Dashboard({
               viewMode={viewMode}
               selectedKeys={selectedKeys}
               onToggleSelection={onToggleSelection}
+              onToggleAllVisible={onToggleAllVisible}
               onUnsubscribe={onUnsubscribe}
               onConfirmAction={onConfirmAction}
             />
