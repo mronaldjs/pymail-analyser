@@ -16,7 +16,7 @@ export interface IMAPCredentials {
   password: string;
   days_limit?: number;
   start_date?: string; // ISO format YYYY-MM-DD
-  end_date?: string;   // ISO format YYYY-MM-DD
+  end_date?: string; // ISO format YYYY-MM-DD
 }
 
 export interface SenderStats {
@@ -37,7 +37,7 @@ export interface AnalysisResponse {
   total_emails_scanned: number;
   ignored_senders: SenderStats[];
   health_score: number;
-  source_grouping_mode?: 'provider' | 'tenant';
+  source_grouping_mode?: "provider" | "tenant";
 }
 
 export interface DeleteRequest {
@@ -49,3 +49,7 @@ export interface ApiErrorResponse {
   detail?: string;
   error_code?: string;
 }
+
+export type ScanProgressEvent =
+  | { type: "progress"; phase: "imap_fetch"; fetched: number }
+  | { type: "progress"; phase: "dns_lookup"; checked: number; total: number };

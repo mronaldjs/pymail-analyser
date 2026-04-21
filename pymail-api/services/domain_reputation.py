@@ -6,11 +6,13 @@ Reputation check for the sender's domain (part after @).
 
 Limitations: This is not a substitute for antivirus or content analysis; it is an auxiliary signal.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -25,9 +27,25 @@ __all__ = [
     "dns_signals_to_trust",
     "virustotal_domain_flags",
     "describe_domain_signals_en",
+    "flush_reputation_cache",
 ]
 
-_CACHE_DEFAULT_FILE = Path(__file__).resolve().parents[2] / ".cache" / "domain_reputation_cache.json"
+_CACHE_DEFAULT_FILE = (
+    Path(__file__).resolve().parents[2] / ".cache" / "domain_reputation_cache.json"
+)
+
+# ---------------------------------------------------------------------------
+# Thread-safety primitives and in-memory cache state
+# ---------------------------------------------------------------------------
+
+_cache_lock: threading.Lock = threading.Lock()
+_in_memory_cache: Optional[Dict[str, Any]] = None
+_cache_dirty: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Disk I/O helpers (unchanged)
+# ---------------------------------------------------------------------------
 
 
 def _cache_file_path() -> Path:
@@ -55,9 +73,26 @@ def _save_cache(data: Dict[str, Any]) -> None:
     tmp.replace(path)
 
 
+# ---------------------------------------------------------------------------
+# In-memory cache helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_in_memory_cache() -> Dict[str, Any]:
+    """
+    Return the in-memory cache, lazy-loading from disk on the very first call.
+    Must be called while holding ``_cache_lock``.
+    """
+    global _in_memory_cache
+    if _in_memory_cache is None:
+        _in_memory_cache = _load_cache()
+    return _in_memory_cache
+
+
 def _cache_get(key: str, ttl_seconds: int) -> Optional[Any]:
-    cache = _load_cache()
-    record = cache.get(key)
+    with _cache_lock:
+        cache = _get_in_memory_cache()
+        record = cache.get(key)
     if not record or not isinstance(record, dict):
         return None
     ts = record.get("ts")
@@ -69,9 +104,33 @@ def _cache_get(key: str, ttl_seconds: int) -> Optional[Any]:
 
 
 def _cache_set(key: str, value: Any) -> None:
-    cache = _load_cache()
-    cache[key] = {"ts": time.time(), "value": value}
-    _save_cache(cache)
+    global _cache_dirty
+    with _cache_lock:
+        cache = _get_in_memory_cache()
+        cache[key] = {"ts": time.time(), "value": value}
+        _cache_dirty = True
+
+
+# ---------------------------------------------------------------------------
+# Public flush function
+# ---------------------------------------------------------------------------
+
+
+def flush_reputation_cache() -> None:
+    """
+    Persist the in-memory cache to disk if it has been modified since the last
+    flush (or since start-up).  Safe to call from any thread at any time.
+    """
+    global _cache_dirty
+    with _cache_lock:
+        if _cache_dirty and _in_memory_cache is not None:
+            _save_cache(_in_memory_cache)
+            _cache_dirty = False
+
+
+# ---------------------------------------------------------------------------
+# Private DNS / text helpers (unchanged)
+# ---------------------------------------------------------------------------
 
 
 def _txt_join(rdata: Any) -> str:
@@ -105,6 +164,11 @@ def _parse_dmarc_policy(txt_lower: str) -> str:
     if "v=dmarc1" in txt_lower:
         return "none"
     return "absent"
+
+
+# ---------------------------------------------------------------------------
+# Public API (unchanged)
+# ---------------------------------------------------------------------------
 
 
 def lookup_domain_signals(domain: str, timeout: float = 2.5) -> Dict[str, Any]:
@@ -220,7 +284,7 @@ def virustotal_domain_flags(domain: str) -> Optional[Tuple[int, int]]:
     if isinstance(cached, tuple) and len(cached) == 2:
         return int(cached[0]), int(cached[1])
 
-    safe_domain = re.sub(r"[^a-z0-9._-]", "", domain.lower())[: 253]
+    safe_domain = re.sub(r"[^a-z0-9._-]", "", domain.lower())[:253]
     if safe_domain != domain.lower():
         return None
     url = f"https://www.virustotal.com/api/v3/domains/{safe_domain}"
@@ -229,9 +293,7 @@ def virustotal_domain_flags(domain: str) -> Optional[Tuple[int, int]]:
         with urllib.request.urlopen(req, timeout=12.0) as resp:
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
         stats = (
-            body.get("data", {})
-            .get("attributes", {})
-            .get("last_analysis_stats", {})
+            body.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
         )
         mal = int(stats.get("malicious", 0) or 0)
         sus = int(stats.get("suspicious", 0) or 0)

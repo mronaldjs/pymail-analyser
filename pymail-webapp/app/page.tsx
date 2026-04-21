@@ -19,7 +19,8 @@ export default function Home() {
   });
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
-  const { data, setData, isLoading, analyze, reset } = useAnalyze();
+  const { data, setData, isLoading, scanProgress, analyze, reset } =
+    useAnalyze();
 
   const {
     actionModalOpen,
@@ -79,7 +80,9 @@ export default function Home() {
       .map((item) => item.trim().replace(/^<|>$/g, ""))
       .filter(Boolean);
 
-    const mailtoLink = candidates.find((item) => item.toLowerCase().startsWith("mailto:"));
+    const mailtoLink = candidates.find((item) =>
+      item.toLowerCase().startsWith("mailto:"),
+    );
     if (mailtoLink) {
       return mailtoLink;
     }
@@ -95,7 +98,7 @@ export default function Home() {
   const handleUnsubscribe = (rawLink: string) => {
     const link = normalizeUnsubscribeLink(rawLink);
 
-    if(!link) {
+    if (!link) {
       popUpAlert("Link de unsubscribe não disponível.", "error");
       return;
     }
@@ -111,8 +114,7 @@ export default function Home() {
     }
 
     popUpAlert("Link de unsubscribe inválido.", "error");
-
-  }
+  };
 
   const handleExecuteAction = (senderEmails: string[]) => {
     executeAction(credentials, senderEmails);
@@ -132,7 +134,7 @@ export default function Home() {
   }, [lastActionResult, setSelectedKeys]);
 
   if (isLoading) {
-    return <LoadingScreen />;
+    return <LoadingScreen progress={scanProgress} />;
   }
 
   if (data) {
