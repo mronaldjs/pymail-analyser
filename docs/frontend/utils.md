@@ -1,3 +1,3 @@
-# Utilitários do Frontend
+# Frontend Utilities
 
-Documentação das funções de auxílio e lógica de negócio do cliente.
+Documentation for helper functions and business logic used by the client application.

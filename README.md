@@ -32,6 +32,16 @@
 - **Shadcn/UI**: Polished UI components.
 - **React Query**: Async state management and API caching.
 
+## Documentation
+The project includes a full documentation site under the `docs/` folder, with separate pages for backend and frontend architecture.
+
+- [Docs Home](docs/index.md)
+- [Backend Docs](docs/backend/index.md)
+- [Frontend Docs](docs/frontend/index.md)
+- [Contribution Guide](docs/CONTRIBUTING.md)
+
+If you want to browse the documentation locally, open the Markdown files directly or use an MkDocs site generator if available.
+
 ## Screenshots
 
 > 📸 Coming soon! Add a screenshot of the inbox dashboard here.

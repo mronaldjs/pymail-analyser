@@ -1,3 +1,3 @@
-# Reputação de Domínio
+# Domain Reputation
 
 ::: services.domain_reputation

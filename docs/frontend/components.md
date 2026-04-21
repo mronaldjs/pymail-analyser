@@ -1,31 +1,31 @@
-# Componentes e Interface Web
+# Web Interface Components
 
-O frontend foi construído seguindo o padrão de **Atomic Design** simplificado, utilizando componentes da biblioteca **shadcn/ui**.
+The frontend is built using a simplified **Atomic Design** pattern and relies on components from the **shadcn/ui** library.
 
-## 🎨 Fluxo de Navegação
+## 🎨 Navigation Flow
 
-O WebApp utiliza um sistema de estados para alternar entre as telas principais:
+The WebApp uses state to switch between the main screens:
 
-1.  **Tela de Login (`'email'`)**: Captura o endereço de e-mail e infere o host IMAP automaticamente.
-2.  **Tela de Credenciais (`'credentials'`)**: Solicita a senha (de app) e o período de análise.
-3.  **Tela de Dashboard**: Exibe os resultados da análise.
+1.  **Login Screen (`'email'`)**: Captures the email address and automatically infers the IMAP host.
+2.  **Credentials Screen (`'credentials'`)**: Requests the app password and analysis period.
+3.  **Dashboard Screen**: Displays the analysis results.
 
-## 🧱 Principais Componentes
+## 🧱 Key Components
 
 ### `SpamRiskBadge`
-Um componente visual que exibe o nível de risco (High/Medium/Low) com cores semânticas:
-- 🟠 **High**: Provavelmente spam.
-- 🟡 **Medium**: Risco médio.
-- 🟢 **Low**: Provavelmente oficial/confiável.
+A visual component that shows risk level (High/Medium/Low) with semantic colors:
+- 🟠 **High**: Likely spam.
+- 🟡 **Medium**: Moderate risk.
+- 🟢 **Low**: Likely official/trusted.
 
 ### `Dashboard (Home)`
-O arquivo `app/page.tsx` gerencia todo o estado da aplicação:
-- **TanStack Query**: Gerencia as requisições assíncronas (`analyzeMutation` e `actionMutation`).
-- **Visualização**: Alterna entre os modos **Lista** (tabela detalhada) e **Grade** (cards visuais).
-- **Seleção em Lote**: Permite selecionar múltiplos remetentes para ações simultâneas.
+The `app/page.tsx` file manages most of the application state:
+- **TanStack Query**: Handles asynchronous requests (`analyzeMutation` and `actionMutation`).
+- **View Modes**: Toggles between **List** view (detailed table) and **Grid** view (visual cards).
+- **Bulk Selection**: Allows selecting multiple senders for bulk actions.
 
 ### `ThemeToggle`
-Permite alternar entre os temas **Dark** e **Light**, sincronizando com a preferência do sistema operacional.
+Enables switching between **Dark** and **Light** themes, synced with system preferences.
 
-## 🧬 Hooks e Estado
-O projeto utiliza o hook `useState` para controle de interface e `useMutation` para interações com o backend, garantindo que a UI seja sempre reativa aos dados mais recentes.
+## 🧬 Hooks and State
+The project uses `useState` for UI control and `useMutation` for backend actions, ensuring the interface stays reactive to the latest data.

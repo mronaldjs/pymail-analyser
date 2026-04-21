@@ -1,45 +1,55 @@
 # PyMail Analyser
 
-Bem-vindo à documentação oficial do **PyMail Analyser**. Este projeto é uma ferramenta full-stack projetada para ajudar usuários a limpar suas caixas de entrada IMAP, identificando remetentes de baixa relevância e permitindo ações em lote (excluir/arquivar).
+Welcome to the official documentation for **PyMail Analyser**. This project is a full-stack tool designed to help users clean IMAP inboxes by identifying low-value senders and enabling bulk actions (delete/archive).
 
-## 🚀 Visão Geral do Sistema
+## 🚀 System Overview
 
-O sistema funciona conectando-se de forma segura à sua conta de e-mail via protocolo IMAP, analisando o comportamento dos remetentes e cruzando dados com sinais de reputação de domínio.
+The system works by securely connecting to your email account via IMAP, analyzing sender behavior, and correlating that data with domain reputation signals.
 
 ```mermaid
 graph TD
-    User((Usuário)) --> WebApp[Next.js WebApp]
+    User((User)) --> WebApp[Next.js WebApp]
     WebApp -->|JSON/REST| API[FastAPI Backend]
-    API -->|Protocolo IMAP| MailServer[Servidor de E-mail]
-    API -->|DNS Lookup| Reputation[Sinais de Reputação]
-    API -->|API v3| VirusTotal[VirusTotal - Opcional]
+    API -->|IMAP Protocol| MailServer[Mail Server]
+    API -->|DNS Lookup| Reputation[Reputation Signals]
+    API -->|API v3| VirusTotal[VirusTotal - Optional]
     
-    subgraph "Lógica de Análise"
-        API --> Aggregator[Agregador de Remetentes]
-        Aggregator --> Scorer[Calculadora de Spam Score]
+    subgraph "Analysis Logic"
+        API --> Aggregator[Sender Aggregator]
+        Aggregator --> Scorer[Spam Score Calculator]
     end
 ```
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Technologies Used
 
 ### Backend (`pymail-api`)
-- **FastAPI**: Framework web de alta performance.
-- **Pydantic**: Validação de dados e esquemas.
-- **imap-tools**: Biblioteca robusta para interação IMAP.
-- **dnspython**: Verificação de registros MX, SPF e DMARC.
+- **FastAPI**: High-performance web framework.
+- **Pydantic**: Data validation and schema handling.
+- **imap-tools**: Robust library for IMAP interaction.
+- **dnspython**: MX, SPF and DMARC record lookup.
 
 ### Frontend (`pymail-webapp`)
-- **Next.js 15+**: Framework React com suporte a SSR/App Router.
-- **Tailwind CSS**: Estilização moderna e responsiva.
-- **TanStack Query**: Gerenciamento de estado e cache de requisições.
-- **Lucide React**: Biblioteca de ícones.
+- **Next.js 15+**: React framework with SSR/App Router support.
+- **Tailwind CSS**: Modern, responsive styling.
+- **TanStack Query**: Request state management and caching.
+- **Lucide React**: Icon library.
 
-## 📦 Estrutura do Monorepo
+## 📦 Monorepo Structure
 
 ```text
 pymail-analyser/
-├── pymail-api/        # API Python (FastAPI)
-├── pymail-webapp/     # Interface Web (Next.js)
-├── docs/              # Documentação unificada (MkDocs)
-└── docker-compose.yml # Orquestração para desenvolvimento
+├── pymail-api/        # Python API (FastAPI)
+├── pymail-webapp/     # Web interface (Next.js)
+├── docs/              # Unified documentation (MkDocs)
+└── docker-compose.yml # Development orchestration
 ```
+
+## 📚 Documentation Quick Links
+- [Docs Home](index.md)
+- [Backend Documentation](backend/index.md)
+- [Frontend Documentation](frontend/index.md)
+- [Backend Analyzer Reference](backend/analyzer.md)
+- [Backend Domain Reputation](backend/reputation.md)
+- [Frontend Components Guide](frontend/components.md)
+- [Frontend Utilities](frontend/utils.md)
+- [Contribution Guide](../CONTRIBUTING.md)
