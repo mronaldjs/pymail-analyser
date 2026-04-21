@@ -50,6 +50,26 @@ export interface ApiErrorResponse {
   error_code?: string;
 }
 
+export interface ReadyResponse {
+  status: string;
+  source_grouping_mode?: "provider" | "tenant";
+  virustotal_enabled: boolean;
+}
+
 export type ScanProgressEvent =
   | { type: "progress"; phase: "imap_fetch"; fetched: number }
   | { type: "progress"; phase: "dns_lookup"; checked: number; total: number };
+
+export interface ScanProgress {
+  phase: "idle" | "counting" | "fetching" | "processing";
+  /** total de e-mails do período (vindo do /count) */
+  total: number;
+  /** quantos itens já processados na fase ativa */
+  current: number;
+  /** total da fase ativa (igual a total em fetching, nº de domínios em processing) */
+  phaseTotal: number;
+  /** porcentagem unificada 0-100 (fetch 0-70%, dns 70-100%) */
+  percentage: number;
+  /** estimativa em segundos para conclusão, null se ainda indisponível */
+  etaSeconds: number | null;
+}

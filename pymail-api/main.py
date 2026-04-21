@@ -65,7 +65,11 @@ app.add_middleware(RequestIDMiddleware)
 @app.get("/ready", response_model=ReadyResponse)
 async def ready() -> ReadyResponse:
     # In a real scenario, add checks for DB, cache, etc.
-    return ReadyResponse(status="ready", source_grouping_mode=_SOURCE_GROUPING_MODE)
+    return ReadyResponse(
+        status="ready",
+        source_grouping_mode=_SOURCE_GROUPING_MODE,
+        virustotal_enabled=bool(os.environ.get("VIRUSTOTAL_API_KEY", "").strip()),
+    )
 
 
 def _error_payload(exc: Exception, request: Request = None) -> tuple[int, dict]:
@@ -98,6 +102,15 @@ def _error_payload(exc: Exception, request: Request = None) -> tuple[int, dict]:
             request_id = request.scope.get("request_id")
 
     payload = {}
+    if isinstance(exc, UnicodeEncodeError):
+        payload = {
+            "detail": "Senha IMAP contém caracteres não suportados pelo cliente. Use uma senha de app ASCII.",
+            "error_code": "IMAP_PASSWORD_ENCODING_FAILED",
+        }
+        if request_id:
+            payload["request_id"] = request_id
+        return 400, payload
+
     if any(marker in message for marker in auth_markers):
         payload = {
             "detail": "Falha de autenticação IMAP. Verifique e-mail e senha de app.",
@@ -139,6 +152,36 @@ async def healthcheck() -> HealthResponse:
 
 
 from fastapi import Request as FastAPIRequest
+
+
+@app.post("/count")
+async def count_emails(credentials: IMAPCredentials, request: FastAPIRequest):
+    """Retorna a contagem total de emails no período especificado sem processá-los."""
+    try:
+        from datetime import date, timedelta
+
+        from imap_tools import A, MailBox
+
+        # Build IMAP date criteria (same logic as analyze)
+        if credentials.start_date and credentials.end_date:
+            criteria = A(date_gte=credentials.start_date, date_lt=credentials.end_date)
+        else:
+            days = credentials.days_limit if credentials.days_limit else 30
+            criteria = A(date_gte=date.today() - timedelta(days=days))
+
+        with MailBox(credentials.host).login(
+            credentials.email, credentials.password
+        ) as mailbox:
+            mailbox.folder.set("INBOX")
+            # Fetch UIDs only (fastest way to count)
+            uids = mailbox.uids(criteria)
+            total = len(uids)
+
+        return {"total": total}
+    except Exception as e:
+        logger.exception("Error counting emails")
+        status_code, payload = _error_payload(e, request)
+        return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.post("/analyze", response_model=AnalysisResponse)

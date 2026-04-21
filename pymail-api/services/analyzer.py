@@ -320,7 +320,10 @@ class EmailAnalyzer:
             mailbox.folder.set("INBOX")
             for msg in mailbox.fetch(criteria, headers_only=True, mark_seen=False):
                 total += 1
-                if progress and total % 25 == 0:
+                # Cadência adaptativa: a cada mensagem até 50 (caixas pequenas
+                # precisam de feedback imediato) e depois a cada 10 para não
+                # saturar o stream.
+                if progress and (total <= 50 or total % 10 == 0):
                     progress(
                         {"type": "progress", "phase": "imap_fetch", "fetched": total}
                     )

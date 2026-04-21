@@ -72,6 +72,10 @@ class ReadyResponse(BaseModel):
         None,
         description="provider | tenant — active source grouping mode",
     )
+    virustotal_enabled: bool = Field(
+        False,
+        description="True when VIRUSTOTAL_API_KEY is set and domain reputation will include VT signals",
+    )
 
 class ErrorResponse(BaseModel):
     detail: str

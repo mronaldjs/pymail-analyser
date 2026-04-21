@@ -1,61 +1,110 @@
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { ScanProgressEvent } from "@/types/api";
+import { ScanProgress } from "@/types/api";
 
 interface LoadingScreenProps {
-  progress?: ScanProgressEvent | null;
+  progress?: ScanProgress;
+}
+
+function formatEta(seconds: number | null): string | null {
+  if (seconds === null || seconds <= 0) return null;
+  if (seconds < 60) return `~${seconds}s restantes`;
+  const minutes = Math.floor(seconds / 60);
+  const remSec = seconds % 60;
+  if (minutes < 60) {
+    return remSec > 0
+      ? `~${minutes}min ${remSec}s restantes`
+      : `~${minutes}min restantes`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remMin = minutes % 60;
+  return `~${hours}h ${remMin}min restantes`;
+}
+
+function IndeterminateBar() {
+  return (
+    <div className="relative w-full h-3 overflow-hidden rounded-full bg-slate-700">
+      <div className="absolute top-0 bottom-0 rounded-full bg-blue-500 animate-indeterminate" />
+    </div>
+  );
 }
 
 export function LoadingScreen({ progress }: LoadingScreenProps) {
-  const isImap = progress?.phase === "imap_fetch";
-  const isDns = progress?.phase === "dns_lookup";
-  const dnsPercent =
-    isDns && progress?.phase === "dns_lookup"
-      ? Math.round((progress.checked / Math.max(1, progress.total)) * 100)
-      : 0;
+  const getPhaseMessage = () => {
+    if (!progress) return "Analisando sua caixa de entrada...";
+
+    switch (progress.phase) {
+      case "counting":
+        return "Contando e-mails no período especificado...";
+      case "fetching":
+        return "Buscando e-mails da caixa de entrada...";
+      case "processing":
+        return "Verificando reputação dos domínios...";
+      default:
+        return "Analisando sua caixa de entrada...";
+    }
+  };
+
+  const getProgressDetails = () => {
+    if (!progress || progress.phase === "idle") {
+      return "Isso pode levar alguns segundos";
+    }
+
+    if (progress.phase === "counting") {
+      return "Consultando o servidor IMAP";
+    }
+
+    if (progress.phase === "fetching") {
+      return `${progress.current} de ${progress.phaseTotal} e-mails processados`;
+    }
+
+    if (progress.phase === "processing") {
+      return `${progress.current} de ${progress.phaseTotal} domínios verificados`;
+    }
+
+    return "Processando...";
+  };
+
+  const isCounting = progress?.phase === "counting";
+  const showDeterminateBar =
+    progress &&
+    progress.phase !== "idle" &&
+    progress.phase !== "counting";
+  const eta = progress ? formatEta(progress.etaSeconds) : null;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-b from-slate-900 to-slate-800 p-4">
-      <div className="flex flex-col items-center space-y-6 w-full max-w-sm">
+      <div className="flex flex-col items-center space-y-6 w-full max-w-md">
         <div className="relative w-16 h-16">
-          {isDns ? (
-            <ShieldCheck className="w-16 h-16 text-blue-500 animate-pulse" />
-          ) : (
-            <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
-          )}
+          <Loader2 className="w-16 h-16 text-blue-500 animate-spin" />
         </div>
 
         <div className="text-center space-y-2 w-full">
-          <h2 className="text-2xl font-bold text-white">
-            {isDns
-              ? "Verificando reputação dos remetentes"
-              : isImap
-                ? "Lendo sua caixa de entrada"
-                : "Analisando sua caixa de entrada..."}
-          </h2>
+          <h2 className="text-2xl font-bold text-white">{getPhaseMessage()}</h2>
+          <p className="text-slate-400">{getProgressDetails()}</p>
 
-          {progress?.phase === "imap_fetch" && (
-            <p className="text-slate-400 tabular-nums">
-              {progress.fetched > 0
-                ? `${progress.fetched.toLocaleString("pt-BR")} emails lidos`
-                : "Conectando ao servidor IMAP..."}
-            </p>
-          )}
-
-          {progress?.phase === "dns_lookup" && (
-            <div className="w-full space-y-2">
-              <p className="text-slate-400 text-sm text-center">
-                {progress.checked} de {progress.total} domínios verificados
-              </p>
-              <Progress value={dnsPercent} className="h-2 bg-slate-700" />
+          {showDeterminateBar && (
+            <div className="mt-6 space-y-2 w-full px-4">
+              <Progress
+                value={progress.percentage}
+                className="w-full h-3 bg-slate-700"
+              />
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-300 font-semibold">
+                  {progress.percentage}%
+                </span>
+                {eta && <span className="text-slate-400">{eta}</span>}
+              </div>
             </div>
           )}
 
-          {!isImap && !isDns && (
-            <p className="text-slate-400">Isso pode levar alguns segundos</p>
+          {isCounting && (
+            <div className="mt-6 w-full px-4">
+              <IndeterminateBar />
+            </div>
           )}
 
-          {!isDns && (
+          {!progress && (
             <div className="mt-4 flex justify-center gap-1">
               <div
                 className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"

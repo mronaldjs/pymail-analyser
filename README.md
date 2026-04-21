@@ -69,7 +69,7 @@ The easiest way to run the project is using **Docker Compose**.
 
 #### Readiness Endpoint
 
-O backend expõe o endpoint `/ready` para checagem de prontidão operacional (útil para orquestradores e healthchecks avançados):
+The backend exposes the `/ready` endpoint for operational readiness checks (useful for orchestrators and advanced healthchecks):
 
 ```
 GET /ready
@@ -79,17 +79,17 @@ GET /ready
 }
 ```
 
-#### Propagação de request_id
+#### Request ID propagation
 
-Todas as requisições HTTP aceitam o header `x-request-id` (opcional). Se enviado, o backend propaga esse valor em respostas de erro estruturadas (`error_code`). Caso não seja enviado, um UUID é gerado automaticamente. Isso facilita rastreamento de requisições e correlação de logs.
+All HTTP requests accept the optional `x-request-id` header. If provided, the backend propagates this value in structured error responses (`error_code`). If omitted, a UUID is generated automatically. This helps with request tracing and log correlation.
 
-Exemplo de resposta de erro:
+Example error response:
 
 ```
 {
-   "detail": "Falha de autenticação IMAP. Verifique e-mail e senha de app.",
+   "detail": "IMAP authentication failed. Check your email and app password.",
    "error_code": "IMAP_AUTH_FAILED",
-   "request_id": "seu-uuid-ou-header"
+   "request_id": "your-uuid-or-header"
 }
 ```
 
@@ -144,6 +144,18 @@ Additional backend environment variables:
 - `DOMAIN_REPUTATION_CACHE_FILE`: custom cache file path for domain reputation data
 - `DOMAIN_REPUTATION_DNS_TTL_SECONDS`: TTL in seconds for DNS reputation cache
 - `DOMAIN_REPUTATION_VT_TTL_SECONDS`: TTL in seconds for VirusTotal cache
+
+### VirusTotal API key
+
+To enable the optional VirusTotal domain reputation checks, create a free account at [https://www.virustotal.com/](https://www.virustotal.com/) and generate an API key in your user settings.
+
+Then add it to your backend environment, for example in `pymail-api/.env`:
+
+```env
+VIRUSTOTAL_API_KEY=your_virustotal_api_key_here
+```
+
+If no key is provided, VirusTotal enrichment is disabled and the app continues to work normally.
 
 Use [pymail-api/.env.example](pymail-api/.env.example) as a starting point for local configuration.
 

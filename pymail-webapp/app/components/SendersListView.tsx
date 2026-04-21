@@ -49,7 +49,7 @@ export default function SendersListView({
             </th>
           </tr>
         </thead>
-        <tbody className="[&_tr:last-child]:border-0">
+        <tbody className="[&_tr:last-child]:border-0 cursor-pointer">
           {senders.map((sender, i) => (
             <tr
               key={i}
