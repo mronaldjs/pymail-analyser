@@ -54,7 +54,7 @@ The easiest way to run the project is using **Docker Compose**.
 - Docker and Docker Compose installed.
 - Node.js 20+ and npm 10+ (for running frontend tests and E2E outside Docker).
 - An email account with IMAP access enabled.
-    - For **Gmail/Google Workspace** (including **UFG**), you MUST use [App Passwords](https://support.google.com/accounts/answer/185833).
+    - For **Gmail/Google Workspace**, you MUST use [App Passwords](https://support.google.com/accounts/answer/185833).
 
 ### Step by Step
 
