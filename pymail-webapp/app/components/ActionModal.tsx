@@ -70,14 +70,16 @@ export function ActionModal({
               disabled={isProcessing}
               className="cursor-pointer"
             >
-              {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : actionType === "delete" ? (
-                <Trash2 className="mr-2 h-4 w-4" />
-              ) : (
-                <Archive className="mr-2 h-4 w-4" />
-              )}
-              Confirmar {actionType === "delete" ? "Exclusão" : "Arquivamento"}
+              <span className="flex items-center">
+                {isProcessing ? (
+                  <Loader2 key="btn-loader" className="mr-2 h-4 w-4 animate-spin" />
+                ) : actionType === "delete" ? (
+                  <Trash2 key="btn-delete" className="mr-2 h-4 w-4" />
+                ) : (
+                  <Archive key="btn-archive" className="mr-2 h-4 w-4" />
+                )}
+                Confirmar {actionType === "delete" ? "Exclusão" : "Arquivamento"}
+              </span>
             </Button>
           </DialogFooter>
         )}
@@ -85,7 +87,10 @@ export function ActionModal({
         {actionStatus === "processing" && (
           <div className="py-6 space-y-4">
             <div className="flex justify-center">
-              <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+              <Loader2
+                key="processing-loader"
+                className="w-12 h-12 text-blue-500 animate-spin"
+              />
             </div>
             <div className="space-y-2">
               <Progress value={actionProgress} className="w-full" />
@@ -100,7 +105,10 @@ export function ActionModal({
         {actionStatus === "success" && (
           <div className="py-6 space-y-4 text-center">
             <div className="flex justify-center">
-              <CheckCircle2 className="w-12 h-12 text-green-500" />
+              <CheckCircle2
+                key="success-icon"
+                className="w-12 h-12 text-green-500"
+              />
             </div>
             <div className="space-y-1">
               <p className="font-semibold text-green-600">
@@ -121,7 +129,7 @@ export function ActionModal({
         {actionStatus === "error" && (
           <div className="py-6 space-y-4 text-center">
             <div className="flex justify-center">
-              <MailX className="w-12 h-12 text-red-500" />
+              <MailX key="error-icon" className="w-12 h-12 text-red-500" />
             </div>
             <div className="space-y-1">
               <p className="font-semibold text-red-600">

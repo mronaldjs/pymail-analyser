@@ -43,9 +43,12 @@ The project includes a full documentation site under the `docs/` folder, with se
 If you want to browse the documentation locally, open the Markdown files directly or use an MkDocs site generator if available.
 
 ## Screenshots
-
-> 📸 Coming soon! Add a screenshot of the inbox dashboard here.
-
+![Image 1](.github/2.png)
+![Image 2](.github/3.png)
+![Image 4](.github/5.png)
+![Image 6](.github/7.png)
+![Image 7](.github/8.png)
+![Image 8](.github/9.png)
 ## Getting Started
 
 The easiest way to run the project is using **Docker Compose**.
