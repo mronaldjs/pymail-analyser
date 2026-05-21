@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Archive, MailX } from "lucide-react";
 import { cleanText } from "@/lib/cleanText";
 import { getSenderKey } from "@/utils/senderSelection";
-import { SpamRiskBadge } from "./SpamRiskBadge";
 
 interface SendersGridViewProps {
   senders: SenderStats[];
@@ -27,7 +26,11 @@ export default function SendersGridView({
         <Card
           key={i}
           tabIndex={0}
-          className="hover:shadow-lg transition-shadow cursor-pointer"
+          className={`group relative overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:shadow-primary/20 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer ${
+            selectedKeys.has(getSenderKey(sender))
+              ? "border-primary/50 bg-primary/10 shadow-lg shadow-primary/20 scale-[1.01]"
+              : "border-white/5 hover:border-primary/30"
+          }`}
           onClick={() => onToggleSelection(getSenderKey(sender))}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -43,17 +46,20 @@ export default function SendersGridView({
                   <h3 className="font-semibold text-sm truncate">
                     {sender.sender_name}
                   </h3>
-                  <SpamRiskBadge risk={sender.spam_risk} />
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
                   {cleanText(sender.source_key || sender.sender_email)}
                 </p>
-                {sender.domain_reputation?.summary_pt && (
+                {(sender.domain_reputation?.summary_en ||
+                  sender.domain_reputation?.summary_pt) && (
                   <p
                     className="text-[10px] text-muted-foreground/80 mt-1 line-clamp-2"
-                    title="Consulta DNS (MX/SPF/DMARC); VirusTotal opcional no servidor"
+                    title="DNS query (MX/SPF/DMARC); VirusTotal optional on the server"
                   >
-                    {cleanText(sender.domain_reputation.summary_pt)}
+                    {cleanText(
+                      sender.domain_reputation.summary_en ||
+                        sender.domain_reputation.summary_pt,
+                    )}
                   </p>
                 )}
               </div>
@@ -69,18 +75,18 @@ export default function SendersGridView({
                 checked={selectedKeys.has(getSenderKey(sender))}
                 onClick={(event) => event.stopPropagation()}
                 onChange={() => onToggleSelection(getSenderKey(sender))}
-                aria-label={`Selecionar ${sender.sender_name}`}
+                aria-label={`Select ${sender.sender_name}`}
               />
-              Selecionar
+              Select
             </label>
 
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">E-mails</p>
+                <p className="text-xs text-muted-foreground">Emails</p>
                 <p className="font-semibold">{sender.email_count}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Taxa Abertura</p>
+                <p className="text-xs text-muted-foreground">Open Rate</p>
                 <p className="font-semibold">
                   <span
                     className={`${sender.open_rate < 20 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
@@ -115,7 +121,7 @@ export default function SendersGridView({
                 }}
                 className="flex-1 cursor-pointer"
               >
-                <Archive className="h-4 w-4 mr-1" /> Arq
+                <Archive className="h-4 w-4 mr-1" /> Arch
               </Button>
               <Button
                 size="sm"

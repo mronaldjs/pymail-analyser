@@ -53,7 +53,7 @@ export function useAction() {
       setActionStatus("success");
       if (type === "archive" && notArchived > 0) {
         alert(
-          "Alguns remetentes não foram arquivados porque a conta não expôs uma pasta de arquivo compatível.",
+          "Some senders were not archived because the account does not expose a compatible archive folder.",
         );
       }
       setTimeout(() => {
@@ -66,10 +66,10 @@ export function useAction() {
     },
     onError: (error: unknown) => {
       setActionStatus("error");
-      const fallback = `Falha ao ${actionType === "delete" ? "excluir" : "arquivar"} os e-mails selecionados.`;
+      const fallback = `Failed to ${actionType === "delete" ? "delete" : "archive"} the selected emails.`;
       const message = resolveApiErrorMessage(error, fallback);
       alert(
-        `Falha ao ${actionType === "delete" ? "excluir" : "arquivar"}: ` +
+        `Failed to ${actionType === "delete" ? "delete" : "archive"}: ` +
           message,
       );
       setIsProcessing(false);

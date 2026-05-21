@@ -6,6 +6,7 @@ export interface DomainReputation {
   dmarc?: string;
   dns_trust?: number;
   summary_pt?: string;
+  summary_en?: string;
   virustotal_malicious?: number;
   virustotal_suspicious?: number;
 }
@@ -58,17 +59,18 @@ export interface ReadyResponse {
 
 export type ScanProgressEvent =
   | { type: "progress"; phase: "imap_fetch"; fetched: number }
+  | { type: "progress"; phase: "unsub_scan"; checked: number; total: number }
   | { type: "progress"; phase: "dns_lookup"; checked: number; total: number };
 
 export interface ScanProgress {
-  phase: "idle" | "counting" | "fetching" | "processing";
+  phase: "idle" | "counting" | "fetching" | "scanning" | "processing";
   /** total de e-mails do período (vindo do /count) */
   total: number;
   /** quantos itens já processados na fase ativa */
   current: number;
   /** total da fase ativa (igual a total em fetching, nº de domínios em processing) */
   phaseTotal: number;
-  /** porcentagem unificada 0-100 (fetch 0-70%, dns 70-100%) */
+  /** porcentagem unificada 0-100 (fetch 0-60%, unsub 60-75%, dns 75-100%) */
   percentage: number;
   /** estimativa em segundos para conclusão, null se ainda indisponível */
   etaSeconds: number | null;

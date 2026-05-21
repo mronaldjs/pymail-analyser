@@ -1,13 +1,13 @@
 import { useRef, useState } from "react";
-import axios from "axios";
 import { IMAPCredentials, AnalysisResponse, ScanProgress } from "@/types/api";
 import { resolveApiErrorMessage } from "../resolveApiErrorMessage";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// Peso de cada fase na barra unificada. Soma 1.0.
-const FETCH_WEIGHT = 0.7;
-const DNS_WEIGHT = 0.3;
+// Weight of each phase in the unified progress bar. Sums to 1.0.
+const FETCH_WEIGHT = 0.6; // Email fetching: 0-60%
+const UNSUB_WEIGHT = 0.15; // Unsubscribe scanning: 60-75%
+const DNS_WEIGHT = 0.25; // DNS/VirusTotal lookup: 75-100%
 
 const IDLE_PROGRESS: ScanProgress = {
   phase: "idle",
@@ -23,56 +23,45 @@ export function useAnalyze() {
   const [isLoading, setIsLoading] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress>(IDLE_PROGRESS);
 
-  // Marcações de tempo para estimativa de ETA.
+  // Time markers for ETA estimation.
   const fetchStartRef = useRef<number | null>(null);
+  const unsubStartRef = useRef<number | null>(null);
   const dnsStartRef = useRef<number | null>(null);
 
   const computeEta = (
     startedAt: number | null,
     current: number,
     phaseTotal: number,
-    remainingWeightFraction: number,
   ): number | null => {
     if (!startedAt || current <= 0 || phaseTotal <= 0) return null;
     const elapsedSec = (Date.now() - startedAt) / 1000;
-    if (elapsedSec < 0.5) return null; // Amostra pequena demais.
+    // Need at least 1 second of data for meaningful ETA
+    if (elapsedSec < 1.0) return null;
+
     const ratePerItem = elapsedSec / current;
     const remainingItems = Math.max(0, phaseTotal - current);
     const remainingPhaseSec = ratePerItem * remainingItems;
-    // Extrapola para as fases seguintes usando o peso restante (aproximação).
-    const totalSec =
-      remainingPhaseSec + elapsedSec * (remainingWeightFraction - 1) * 0;
-    // remainingWeightFraction reservado para refinamento futuro; por enquanto
-    // usamos apenas o restante da fase ativa (ambos usam o mesmo I/O pattern).
-    void totalSec;
+
+    // Apply smoothing to avoid wild fluctuations
     return Math.max(1, Math.round(remainingPhaseSec));
   };
 
   const analyze = async (credentials: IMAPCredentials) => {
     setIsLoading(true);
-    setScanProgress({ ...IDLE_PROGRESS, phase: "counting" });
-    fetchStartRef.current = null;
+    // Start immediately in "fetching" indeterminate mode — no pre-flight /count
+    // needed. The stream's imap_fetch events supply a live running counter which
+    // we use for ETA once we have enough samples.
+    setScanProgress({ ...IDLE_PROGRESS, phase: "fetching" });
+    fetchStartRef.current = Date.now();
+    unsubStartRef.current = null;
     dnsStartRef.current = null;
 
+    // Running total accumulated from imap_fetch events (no upfront count).
+    let liveTotal = 0;
+    let lastFetchedCount = 0;
+
     try {
-      // Step 1: Pré-contagem rápida (UIDs server-side).
-      const countResponse = await axios.post<{ total: number }>(
-        `${API_BASE_URL}/count`,
-        credentials,
-      );
-      const total = countResponse.data.total;
-
-      fetchStartRef.current = Date.now();
-      setScanProgress({
-        phase: "fetching",
-        total,
-        current: 0,
-        phaseTotal: total,
-        percentage: 0,
-        etaSeconds: null,
-      });
-
-      // Step 2: Stream NDJSON de eventos de progresso.
+      // Single IMAP connection: jump straight to the NDJSON stream.
       const response = await fetch(`${API_BASE_URL}/analyze/stream`, {
         method: "POST",
         headers: {
@@ -112,22 +101,62 @@ export function useAnalyze() {
             if (event.type === "progress") {
               if (event.phase === "imap_fetch") {
                 const current = event.fetched || 0;
-                const fetchFraction =
-                  total > 0 ? Math.min(1, current / total) : 0;
+                lastFetchedCount = current;
+                // Grow the live total to at least `current` — it never shrinks.
+                liveTotal = Math.max(liveTotal, current);
+
+                // Improved progress calculation:
+                // Use a logarithmic approach for early progress to show movement faster
+                let fetchFraction;
+                if (current < 10) {
+                  // First 10 emails show faster initial progress (0-20% of fetch phase)
+                  fetchFraction = Math.min(0.2, current / 50);
+                } else if (current < 50) {
+                  // 10-50 emails progress to 50% of fetch phase
+                  fetchFraction = 0.2 + ((current - 10) / 40) * 0.3;
+                } else {
+                  // Beyond 50, assume we're at 50-95% based on current vs estimated
+                  const estimated = Math.max(liveTotal, current * 1.15);
+                  fetchFraction =
+                    0.5 + Math.min(0.45, (current / estimated) * 0.45);
+                }
+
                 const percentage = Math.round(
                   fetchFraction * FETCH_WEIGHT * 100,
                 );
                 const etaSeconds = computeEta(
                   fetchStartRef.current,
                   current,
-                  total,
-                  FETCH_WEIGHT + DNS_WEIGHT,
+                  Math.max(liveTotal, Math.round(current * 1.2)),
                 );
                 setScanProgress({
                   phase: "fetching",
-                  total,
+                  total: liveTotal,
                   current,
-                  phaseTotal: total,
+                  phaseTotal: liveTotal,
+                  percentage,
+                  etaSeconds,
+                });
+              } else if (event.phase === "unsub_scan") {
+                if (unsubStartRef.current === null) {
+                  unsubStartRef.current = Date.now();
+                }
+                const checked = event.checked || 0;
+                const unsubTotal = event.total || 1;
+                const unsubFraction = Math.min(1, checked / unsubTotal);
+                const percentage = Math.round(
+                  (FETCH_WEIGHT + unsubFraction * UNSUB_WEIGHT) * 100,
+                );
+                const etaSeconds = computeEta(
+                  unsubStartRef.current,
+                  checked,
+                  unsubTotal,
+                );
+                setScanProgress({
+                  phase: "scanning",
+                  total: liveTotal,
+                  current: checked,
+                  phaseTotal: unsubTotal,
                   percentage,
                   etaSeconds,
                 });
@@ -136,21 +165,20 @@ export function useAnalyze() {
                   dnsStartRef.current = Date.now();
                 }
                 const checked = event.checked || 0;
-                const dnsTotal = event.total || 0;
-                const dnsFraction =
-                  dnsTotal > 0 ? Math.min(1, checked / dnsTotal) : 0;
+                const dnsTotal = event.total || 1;
+                const dnsFraction = Math.min(1, checked / dnsTotal);
                 const percentage = Math.round(
-                  (FETCH_WEIGHT + dnsFraction * DNS_WEIGHT) * 100,
+                  (FETCH_WEIGHT + UNSUB_WEIGHT + dnsFraction * DNS_WEIGHT) *
+                    100,
                 );
                 const etaSeconds = computeEta(
                   dnsStartRef.current,
                   checked,
                   dnsTotal,
-                  DNS_WEIGHT,
                 );
                 setScanProgress({
                   phase: "processing",
-                  total,
+                  total: liveTotal,
                   current: checked,
                   phaseTotal: dnsTotal,
                   percentage,
@@ -162,7 +190,7 @@ export function useAnalyze() {
               setIsLoading(false);
               setScanProgress({ ...IDLE_PROGRESS, percentage: 100 });
             } else if (event.type === "error") {
-              throw new Error(event.payload?.detail || "Erro desconhecido");
+              throw new Error(event.payload?.detail || "Unknown error");
             }
           } catch (parseError) {
             console.error("Error parsing event:", parseError, line);
@@ -173,9 +201,9 @@ export function useAnalyze() {
       setIsLoading(false);
       const message = resolveApiErrorMessage(
         error,
-        "Falha ao conectar com o servidor.",
+        "Failed to connect to the server.",
       );
-      alert("Falha ao conectar: " + message);
+      alert("Failed to connect: " + message);
       setScanProgress(IDLE_PROGRESS);
     }
   };

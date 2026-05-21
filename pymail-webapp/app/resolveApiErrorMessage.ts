@@ -7,15 +7,15 @@ export function resolveApiErrorMessage(error: unknown, fallback: string): string
   const detail = axiosError.response?.data?.detail;
 
   if (errorCode === 'IMAP_AUTH_FAILED') {
-    return 'Falha de autenticação IMAP. Verifique e-mail e senha de app.';
+    return 'IMAP authentication failed. Please check your email and app password.';
   }
 
   if (errorCode === 'IMAP_UNAVAILABLE') {
-    return 'Servidor IMAP indisponível no momento. Tente novamente em instantes.';
+    return 'IMAP server is currently unavailable. Please try again shortly.';
   }
 
   if (errorCode === 'IMAP_OPERATION_FAILED') {
-    return 'Falha ao processar a operação IMAP. Revise host, credenciais e permissões da conta.';
+    return 'Failed to process IMAP operation. Please review host, credentials, and account permissions.';
   }
 
   if (detail && detail.trim().length > 0) {

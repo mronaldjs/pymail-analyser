@@ -31,28 +31,28 @@ export function CredentialsForm({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">Quase lá!</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">Almost there!</h1>
         <p className="text-slate-400 text-sm">
-          Provedor detectado:{" "}
+          Provider detected:{" "}
           <span className="text-blue-400 font-semibold">{providerName}</span>
         </p>
       </div>
 
-      <div className="bg-slate-700 rounded p-4 text-sm">
+      <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm backdrop-blur-sm">
         <p className="text-slate-300">
           <span className="text-slate-400">Email:</span> {email}
         </p>
         <p className="text-slate-300 mt-2">
-          <span className="text-slate-400">Host IMAP:</span>{" "}
-          {inferredHost || "(Personalizado)"}
+          <span className="text-slate-400">IMAP Host:</span>{" "}
+          {inferredHost || "(Custom)"}
         </p>
       </div>
 
       <div className="space-y-4">
         {!inferredHost && (
-          <div className="space-y-2">
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
             <label className="text-sm font-medium text-white">
-              Host IMAP Personalizado
+              Custom IMAP Host
             </label>
             <Input
               value={credentials.host}
@@ -62,8 +62,8 @@ export function CredentialsForm({
                   host: e.target.value,
                 })
               }
-              placeholder="imap.seuservidor.com"
-              className="bg-slate-700 border-slate-600 text-white placeholder-slate-500"
+              placeholder="imap.yourserver.com"
+              className="bg-white/5 border-white/10 text-white placeholder-white/40 focus:border-primary focus:ring-primary/50 transition-all"
               required
             />
           </div>
@@ -72,15 +72,15 @@ export function CredentialsForm({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-white">
-              Senha de App ou Senha
+              App Password or Password
             </label>
             <button
               type="button"
               onClick={onHelpClick}
-              className="text-xs text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs text-primary hover:text-accent hover:underline flex items-center gap-1 cursor-pointer transition-colors"
             >
               <HelpCircle className="h-3 w-3" />
-              Como gerar?
+              How to generate?
             </button>
           </div>
           <Input
@@ -94,17 +94,17 @@ export function CredentialsForm({
             }
             placeholder="••••••••"
             required
-            className="bg-slate-700 border-slate-600 text-white placeholder-slate-500"
+            className="bg-white/5 border-white/10 text-white placeholder-white/40 focus:border-primary focus:ring-primary/50 transition-all"
             autoFocus
           />
-          <p className="text-xs text-slate-500">
-            Use uma senha de app se tiver 2FA ativado
+          <p className="text-xs text-muted-foreground">
+            Use an app password if you have 2FA enabled
           </p>
         </div>
 
         <div className="space-y-3">
           <label className="text-sm font-medium text-white">
-            Período de Análise
+            Analysis Period
           </label>
 
           <div className="flex gap-2">
@@ -123,7 +123,7 @@ export function CredentialsForm({
               }}
               className="flex-1 cursor-pointer"
             >
-              Predefinido
+              Preset
             </Button>
             <Button
               type="button"
@@ -138,7 +138,7 @@ export function CredentialsForm({
               }}
               className="flex-1 cursor-pointer"
             >
-              Personalizado
+              Custom
             </Button>
           </div>
 
@@ -155,16 +155,16 @@ export function CredentialsForm({
               }
               className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
             >
-              <option value={7}>Últimos 7 dias</option>
-              <option value={30}>Últimos 30 dias</option>
-              <option value={90}>Últimos 90 dias</option>
-              <option value={180}>Últimos 6 meses</option>
-              <option value={365}>Último ano</option>
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={180}>Last 6 months</option>
+              <option value={365}>Last year</option>
             </select>
           ) : (
             <div className="space-y-2">
               <div className="space-y-1">
-                <label className="text-xs text-slate-400">Data Inicial</label>
+                <label className="text-xs text-slate-400">Start Date</label>
                 <Input
                   type="date"
                   value={credentials.start_date || ""}
@@ -183,7 +183,7 @@ export function CredentialsForm({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-slate-400">Data Final</label>
+                <label className="text-xs text-slate-400">End Date</label>
                 <Input
                   type="date"
                   value={credentials.end_date || ""}
@@ -210,7 +210,7 @@ export function CredentialsForm({
           variant="outline"
           className="flex-1 border-slate-600 text-white hover:bg-slate-700 cursor-pointer"
         >
-          Voltar
+          Back
         </Button>
         <Button
           onClick={onAnalyze}
@@ -221,7 +221,7 @@ export function CredentialsForm({
               (!credentials.start_date || !credentials.end_date))
           }
         >
-          Analisar Inbox
+          Analyze Inbox
         </Button>
       </div>
     </div>

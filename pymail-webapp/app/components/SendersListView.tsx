@@ -3,13 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Archive, MailX } from "lucide-react";
 import { cleanText } from "@/lib/cleanText";
 import { getSenderKey } from "@/utils/senderSelection";
-import { SpamRiskBadge } from "./SpamRiskBadge";
 
 interface SendersListViewProps {
   senders: SenderStats[];
   selectedKeys: Set<string>;
   onToggleSelection: (key: string) => void;
-  onToggleAllVisible: (visibleSenders: SenderStats[], allVisibleSelected: boolean) => void;
+  onToggleAllVisible: (
+    visibleSenders: SenderStats[],
+    allVisibleSelected: boolean,
+  ) => void;
   onUnsubscribe: (link: string) => void;
   onConfirmAction: (sender: SenderStats, action: "archive" | "delete") => void;
 }
@@ -25,38 +27,44 @@ export default function SendersListView({
   const allVisibleSelected =
     senders.length > 0 &&
     senders.every((sender) => selectedKeys.has(getSenderKey(sender)));
-  const someVisibleSelected =
-    senders.some((sender) => selectedKeys.has(getSenderKey(sender)));
+  const someVisibleSelected = senders.some((sender) =>
+    selectedKeys.has(getSenderKey(sender)),
+  );
 
   return (
-    <div className="relative w-full overflow-auto">
+    <div className="relative w-full overflow-auto rounded-xl border border-white/5 bg-background/30 backdrop-blur-md">
       <table className="w-full caption-bottom text-sm">
-        <thead className="[&_tr]:border-b">
-          <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+        <thead className="[&_tr]:border-b border-white/10 bg-muted/20">
+          <tr className="transition-colors hover:bg-muted/30 data-[state=selected]:bg-muted">
+            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
               <input
                 type="checkbox"
+                className="rounded border-white/20 bg-background"
                 checked={allVisibleSelected}
-                aria-checked={someVisibleSelected && !allVisibleSelected ? "mixed" : undefined}
+                aria-checked={
+                  someVisibleSelected && !allVisibleSelected
+                    ? "mixed"
+                    : undefined
+                }
                 disabled={senders.length === 0}
                 onChange={() => onToggleAllVisible(senders, allVisibleSelected)}
-                aria-label="Selecionar todos visíveis"
+                aria-label="Select all visible"
               />
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-              Remetente / risco
+              Sender
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-              Qtd
+              Count
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-              Taxa de Abertura
+              Open Rate
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-              Pontuação Spam
+              Spam Score
             </th>
             <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-              Ações
+              Actions
             </th>
           </tr>
         </thead>
@@ -65,7 +73,7 @@ export default function SendersListView({
             <tr
               key={i}
               tabIndex={0}
-              className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+              className="group border-b border-white/5 transition-all duration-300 ease-in-out hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/5 cursor-pointer data-[state=selected]:bg-primary/15 data-[state=selected]:shadow-xl data-[state=selected]:shadow-primary/10"
               onClick={() => onToggleSelection(getSenderKey(sender))}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -73,52 +81,61 @@ export default function SendersListView({
                   onToggleSelection(getSenderKey(sender));
                 }
               }}
+              data-state={
+                selectedKeys.has(getSenderKey(sender)) ? "selected" : undefined
+              }
             >
               <td className="p-4 align-middle">
                 <input
                   type="checkbox"
+                  className="rounded border-white/20"
                   checked={selectedKeys.has(getSenderKey(sender))}
                   onClick={(event) => event.stopPropagation()}
                   onChange={() => onToggleSelection(getSenderKey(sender))}
-                  aria-label={`Selecionar ${sender.sender_name}`}
+                  aria-label={`Select ${sender.sender_name}`}
                 />
               </td>
               <td className="p-4 align-middle">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">
+                  <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
                     {cleanText(sender.sender_name)}
                   </span>
-                  <SpamRiskBadge risk={sender.spam_risk} />
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {cleanText(sender.source_key || sender.sender_email)}
                 </div>
-                {sender.domain_reputation?.summary_pt && (
+                {(sender.domain_reputation?.summary_en ||
+                  sender.domain_reputation?.summary_pt) && (
                   <div
-                    className="text-xs text-muted-foreground/80 mt-1 max-w-md"
-                    title="Consulta DNS (MX/SPF/DMARC); VirusTotal apenas se VIRUSTOTAL_API_KEY estiver definida no servidor"
+                    className="text-[10px] text-muted-foreground/60 mt-1.5 max-w-md bg-muted/30 p-1.5 rounded-md inline-block border border-white/5"
+                    title="DNS query (MX/SPF/DMARC); VirusTotal only if VIRUSTOTAL_API_KEY is set on the server"
                   >
-                    {cleanText(sender.domain_reputation.summary_pt)}
+                    {cleanText(
+                      sender.domain_reputation.summary_en ||
+                        sender.domain_reputation.summary_pt,
+                    )}
                   </div>
                 )}
               </td>
-              <td className="p-4 align-middle">{sender.email_count}</td>
+              <td className="p-4 align-middle font-medium">
+                {sender.email_count}
+              </td>
               <td className="p-4 align-middle">
                 <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     sender.open_rate < 20
-                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                      ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                      : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
                   }`}
                 >
                   {sender.open_rate}%
                 </span>
               </td>
-              <td className="p-4 align-middle font-bold">
+              <td className="p-4 align-middle font-bold text-foreground">
                 {sender.spam_score}
               </td>
               <td className="p-4 align-middle text-right">
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-300">
                   {sender.unsubscribe_link && (
                     <Button
                       size="sm"
@@ -128,9 +145,10 @@ export default function SendersListView({
                         onUnsubscribe(sender.unsubscribe_link!);
                       }}
                       title={sender.unsubscribe_link}
-                      className="cursor-pointer"
+                      className="cursor-pointer border-white/10 hover:bg-white/5 h-8 px-2"
                     >
-                      <MailX className="h-4 w-4 mr-1" /> Unsub
+                      <MailX className="h-3.5 w-3.5 sm:mr-1" />{" "}
+                      <span className="hidden sm:inline text-xs">Unsub</span>
                     </Button>
                   )}
                   <Button
@@ -140,9 +158,10 @@ export default function SendersListView({
                       event.stopPropagation();
                       onConfirmAction(sender, "archive");
                     }}
-                    className="cursor-pointer"
+                    className="cursor-pointer bg-white/5 hover:bg-white/10 h-8 px-2"
                   >
-                    <Archive className="h-4 w-4 mr-1" /> Arquivar
+                    <Archive className="h-3.5 w-3.5 sm:mr-1" />{" "}
+                    <span className="hidden sm:inline text-xs">Archive</span>
                   </Button>
                   <Button
                     size="sm"
@@ -151,9 +170,10 @@ export default function SendersListView({
                       event.stopPropagation();
                       onConfirmAction(sender, "delete");
                     }}
-                    className="cursor-pointer"
+                    className="cursor-pointer h-8 px-2 shadow-lg shadow-destructive/20"
                   >
-                    <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                    <Trash2 className="h-3.5 w-3.5 sm:mr-1" />{" "}
+                    <span className="hidden sm:inline text-xs">Delete</span>
                   </Button>
                 </div>
               </td>

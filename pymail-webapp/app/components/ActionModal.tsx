@@ -40,17 +40,17 @@ export function ActionModal({
         <DialogHeader>
           <DialogTitle>
             {actionType === "delete"
-              ? "Confirmar Exclusão"
-              : "Confirmar Arquivamento"}
+              ? "Confirm Delete"
+              : "Confirm Archive"}
           </DialogTitle>
           <DialogDescription>
-            Você está prestes a{" "}
-            {actionType === "delete" ? "excluir" : "arquivar"}{" "}
-            <strong>{totalEmails}</strong> e-mail(is) de{" "}
-            <strong>{actionTargets.length}</strong> fonte(s) selecionada(s).
+            You are about to{" "}
+            {actionType === "delete" ? "delete" : "archive"}{" "}
+            <strong>{totalEmails}</strong> email(s) from{" "}
+            <strong>{actionTargets.length}</strong> selected source(s).
             {actionType === "delete"
-              ? " Esta ação moverá os itens para a Lixeira."
-              : " Os e-mails serão movidos para o arquivo."}
+              ? " This action will move items to the Trash."
+              : " The emails will be moved to the archive folder."}
           </DialogDescription>
         </DialogHeader>
 
@@ -62,7 +62,7 @@ export function ActionModal({
               disabled={isProcessing}
               className="cursor-pointer"
             >
-              Cancelar
+              Cancel
             </Button>
             <Button
               variant={actionType === "delete" ? "destructive" : "secondary"}
@@ -78,7 +78,7 @@ export function ActionModal({
                 ) : (
                   <Archive key="btn-archive" className="mr-2 h-4 w-4" />
                 )}
-                Confirmar {actionType === "delete" ? "Exclusão" : "Arquivamento"}
+                Confirm {actionType === "delete" ? "Delete" : "Archive"}
               </span>
             </Button>
           </DialogFooter>
@@ -95,7 +95,7 @@ export function ActionModal({
             <div className="space-y-2">
               <Progress value={actionProgress} className="w-full" />
               <p className="text-xs text-center text-muted-foreground">
-                {actionType === "delete" ? "Excluindo" : "Arquivando"} e-mails:{" "}
+                {actionType === "delete" ? "Deleting" : "Archiving"} emails:{" "}
                 {Math.round(actionProgress)}%
               </p>
             </div>
@@ -112,14 +112,14 @@ export function ActionModal({
             </div>
             <div className="space-y-1">
               <p className="font-semibold text-green-600">
-                {actionType === "delete" ? "Exclusão" : "Arquivamento"}{" "}
-                concluído!
+                {actionType === "delete" ? "Delete" : "Archive"}{" "}
+                completed!
               </p>
               <p className="text-sm text-muted-foreground">
-                Os e-mails selecionados foram{" "}
+                The selected emails have been{" "}
                 {actionType === "delete"
-                  ? "movidos para a Lixeira"
-                  : "arquivados"}
+                  ? "moved to Trash"
+                  : "archived"}
                 .
               </p>
             </div>
@@ -133,10 +133,10 @@ export function ActionModal({
             </div>
             <div className="space-y-1">
               <p className="font-semibold text-red-600">
-                Erro no {actionType === "delete" ? "exclusão" : "arquivamento"}
+                Error during {actionType === "delete" ? "delete" : "archive"}
               </p>
               <p className="text-sm text-muted-foreground">
-                Verifique sua conexão e tente novamente.
+                Check your connection and try again.
               </p>
             </div>
             <Button
@@ -144,7 +144,7 @@ export function ActionModal({
               onClick={() => onOpenChange(false)}
               className="w-full cursor-pointer"
             >
-              Fechar
+              Close
             </Button>
           </div>
         )}

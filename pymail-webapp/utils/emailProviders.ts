@@ -26,7 +26,7 @@ export function inferIMAPHost(email: string): string | null {
 
 export function getProviderName(email: string): string {
   const domain = email.split('@')[1]?.toLowerCase();
-  if (!domain) return 'Desconhecido';
+  if (!domain) return 'Unknown';
   
   const providerMap: Record<string, string> = {
     'gmail.com': 'Gmail',
@@ -46,7 +46,7 @@ export function getProviderName(email: string): string {
   // Friendly name for generic institutional emails
   if (domain.endsWith('.br')) {
     if (domain.includes('ufg')) return `UFG (${domain})`;
-    if (domain.includes('edu')) return `Institucional (${domain})`;
+    if (domain.includes('edu')) return `Institutional (${domain})`;
   }
 
   return domain;

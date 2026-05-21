@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnalysisResponse, IMAPCredentials, SenderStats } from "@/types/api";
 import { DashboardHeader } from "./DashboardHeader";
@@ -13,6 +13,12 @@ import {
   buildBulkSenderEmails,
   getSenderKey,
 } from "@/utils/senderSelection";
+import {
+  SortField,
+  SortDirection,
+  GroupBy,
+  GroupConfig,
+} from "@/utils/senderSorting";
 
 interface DashboardProps {
   data: AnalysisResponse;
@@ -23,7 +29,10 @@ interface DashboardProps {
   selectedKeys: Set<string>;
   selectedSourceKeys: string[];
   onToggleSelection: (key: string) => void;
-  onToggleAllVisible: (visibleSenders: SenderStats[], allVisibleSelected: boolean) => void;
+  onToggleAllVisible: (
+    visibleSenders: SenderStats[],
+    allVisibleSelected: boolean,
+  ) => void;
   onDisconnect: () => void;
   actionModalOpen: boolean;
   setActionModalOpen: (open: boolean) => void;
@@ -68,16 +77,26 @@ export function Dashboard({
 }: DashboardProps) {
   const allSenders = data.ignored_senders || [];
   const visibleSenders = filterBySources(allSenders, selectedSourceKeys);
+
+  // Sorting and grouping state
+  const [sortField, setSortField] = useState<SortField>("spam_score");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+
+  const groupConfig: GroupConfig = {
+    groupBy,
+    sortWithinGroups: { field: sortField, direction: sortDirection },
+  };
   const groupingMode =
     data.source_grouping_mode === "tenant" ? "tenant" : "provider";
   const groupingHint =
     data.source_grouping_mode === "tenant"
-      ? "Agrupamento detalhado ativo: domínios privados geram chaves por tenant (ex.: myblog.github.io -> myblog)."
-      : "Agrupamento por provedor ativo: domínios privados tendem a ser agrupados pelo provedor (ex.: myblog.github.io -> github).";
+      ? "Detailed grouping active: private domains generate keys by tenant (e.g.: myblog.github.io -> myblog)."
+      : "Provider grouping active: private domains tend to be grouped by the provider (e.g.: myblog.github.io -> github).";
 
-  // Rastreia targetKeys já processados para evitar loops infinitos e garantir
-  // uma única remoção por ação — necessário porque o consumer (page.tsx) pode
-  // não resetar lastActionResult imediatamente.
+  // Tracks already processed targetKeys to prevent infinite loops and ensure
+  // a single removal per action — necessary because the consumer (page.tsx) may
+  // not reset lastActionResult immediately.
   const consumedRef = useRef<string>("");
   useEffect(() => {
     if (
@@ -141,6 +160,12 @@ export function Dashboard({
             groupingHint={groupingHint}
             selectedCount={selectedKeys.size}
             visibleCount={visibleSenders.length}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            groupBy={groupBy}
+            onSortFieldChange={setSortField}
+            onSortDirectionChange={setSortDirection}
+            onGroupByChange={setGroupBy}
             onArchiveSelected={handleArchiveSelected}
             onDeleteSelected={handleDeleteSelected}
           />
@@ -148,6 +173,7 @@ export function Dashboard({
             <SendersList
               senders={visibleSenders}
               viewMode={viewMode}
+              groupConfig={groupConfig}
               selectedKeys={selectedKeys}
               onToggleSelection={onToggleSelection}
               onToggleAllVisible={onToggleAllVisible}

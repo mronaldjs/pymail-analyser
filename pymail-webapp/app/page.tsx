@@ -92,26 +92,26 @@ export default function Home() {
     const link = normalizeUnsubscribeLink(rawLink);
 
     if (!link) {
-      popUpAlert("Link de unsubscribe não disponível.", "error");
+      popUpAlert("Unsubscribe link not available.", "error");
       return;
     }
 
     if (link.toLowerCase().startsWith("mailto:")) {
-      // Descadastro via e-mail: abre o cliente de e-mail padrão do usuário.
-      // Usamos window.open em vez de window.location para evitar sair da
-      // página caso nenhum cliente esteja registrado.
+      // Unsubscribe via email: opens the user's default email client.
+      // We use window.open instead of window.location to avoid leaving the
+      // page if no client is registered.
       const opened = window.open(link, "_self");
       if (!opened) {
-        // Alguns browsers bloqueiam a abertura — tentamos copiar e avisar.
+        // Some browsers block opening — we try to copy and notify.
         try {
           navigator.clipboard?.writeText(link);
           popUpAlert(
-            "Link mailto copiado. Envie um e-mail com esse destinatário para concluir o descadastro.",
+            "Mailto link copied. Send an email to this recipient to complete the unsubscribe.",
             "info",
           );
         } catch {
           popUpAlert(
-            "Abra seu cliente de e-mail e envie para: " + link.slice(7),
+            "Open your email client and send to: " + link.slice(7),
             "info",
           );
         }
@@ -124,7 +124,7 @@ export default function Home() {
       return;
     }
 
-    popUpAlert("Link de unsubscribe inválido.", "error");
+    popUpAlert("Invalid unsubscribe link.", "error");
   };
 
   const handleExecuteAction = (senderEmails: string[]) => {

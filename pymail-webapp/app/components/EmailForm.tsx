@@ -15,35 +15,35 @@ export function EmailForm({ email, setEmail, onSubmit }: EmailFormProps) {
           PyMail Analyser
         </h1>
         <p className="text-slate-400">
-          Detectando seu provedor de email...
+          Detecting your email provider...
         </p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-white">E-mail</label>
+          <label className="text-sm font-medium text-white">Email</label>
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="seu.email@gmail.com"
+            placeholder="your.email@gmail.com"
             required
-            className="bg-slate-700 border-slate-600 text-white placeholder-slate-500"
+            className="bg-white/5 border-white/10 text-white placeholder-white/40 focus:border-primary focus:ring-primary/50 transition-all"
             autoFocus
           />
         </div>
 
         <Button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+          className="w-full bg-linear-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold cursor-pointer shadow-lg shadow-primary/20 transition-all"
           disabled={!email}
         >
-          Continuar
+          Continue
         </Button>
       </form>
 
       <p className="text-xs text-slate-500 text-center">
-        Seu email será usado apenas para conectar à sua caixa de entrada
+        Your email will only be used to connect to your inbox
       </p>
     </div>
   );

@@ -5,6 +5,7 @@ import tempfile
 from services.domain_reputation import (
     dns_signals_to_trust,
     describe_domain_signals_pt,
+    describe_domain_signals_en,
     _cache_set,
     _cache_get,
 )
@@ -45,9 +46,24 @@ class TestDomainReputation(unittest.TestCase):
         s = describe_domain_signals_pt(
             {"mx": True, "spf": "strict", "dmarc": "reject", "error": None}
         )
-        self.assertIn("MX", s)
-        self.assertIn("SPF", s)
-        self.assertIn("DMARC", s)
+        self.assertIn("MX:sim", s)
+        self.assertIn("SPF:strict", s)
+        self.assertIn("DMARC:reject", s)
+
+    def test_describe_en_includes_mx_spf_dmarc(self):
+        s = describe_domain_signals_en(
+            {"mx": True, "spf": "strict", "dmarc": "reject", "error": None}
+        )
+        self.assertIn("MX:yes", s)
+        self.assertIn("SPF:strict", s)
+        self.assertIn("DMARC:reject", s)
+
+    def test_describe_en_error(self):
+        s = describe_domain_signals_en(
+            {"mx": False, "spf": "absent", "dmarc": "absent", "error": "DNS error occurred"}
+        )
+        self.assertIn("MX:no", s)
+        self.assertIn("DNS error", s)
 
     def test_cache_set_and_get(self):
         _cache_set("k1", {"a": 1})

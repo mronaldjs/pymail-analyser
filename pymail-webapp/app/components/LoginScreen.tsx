@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeSelector } from "./ThemeSelector";
 import { IMAPCredentials } from "@/types/api";
 import { inferIMAPHost, getProviderName } from "@/utils/emailProviders";
 import { EmailForm } from "./EmailForm";
@@ -34,7 +34,7 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
 
     if (!host) {
       alert(
-        "Domínio de email não reconhecido. Você terá que preencher o host IMAP manualmente.",
+        "Email domain not recognized. You will need to fill in the IMAP host manually.",
       );
       setInferredHost("");
       setCredentials((prev) => ({ ...prev, email, host: "" }));
@@ -64,57 +64,68 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
 
   return (
     <>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <div className="absolute top-4 right-4">
-          <ThemeToggle />
+      <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-br from-background via-background to-primary/10 p-4 relative overflow-hidden">
+        {/* Decorative background blur elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/20 blur-[100px] rounded-full pointer-events-none" />
+
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeSelector />
         </div>
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">
-              Conectar Caixa de Entrada
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {step === "email" ? (
-              <EmailForm
-                email={email}
-                setEmail={setEmail}
-                onSubmit={handleEmailSubmit}
-              />
-            ) : (
-              <CredentialsForm
-                email={email}
-                providerName={getProviderName(email)}
-                inferredHost={inferredHost}
-                credentials={credentials}
-                setCredentials={setCredentials}
-                dateRangeMode={dateRangeMode}
-                setDateRangeMode={setDateRangeMode}
-                onBack={handleBack}
-                onAnalyze={handleAnalyze}
-                onHelpClick={() => setHelpModalOpen(true)}
-              />
-            )}
-          </CardContent>
-        </Card>
+
+        <div className="w-full max-w-md z-10">
+          <Card className="glass-card border-white/10 dark:border-white/5 relative overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-3xl font-extrabold text-center bg-clip-text text-transparent bg-linear-to-r from-primary to-accent">
+                Connect Inbox
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="transition-all duration-500 ease-in-out">
+              {step === "email" ? (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <EmailForm
+                    email={email}
+                    setEmail={setEmail}
+                    onSubmit={handleEmailSubmit}
+                  />
+                </div>
+              ) : (
+                <div className="animate-in fade-in slide-in-from-right-8 duration-500">
+                  <CredentialsForm
+                    email={email}
+                    providerName={getProviderName(email)}
+                    inferredHost={inferredHost}
+                    credentials={credentials}
+                    setCredentials={setCredentials}
+                    dateRangeMode={dateRangeMode}
+                    setDateRangeMode={setDateRangeMode}
+                    onBack={handleBack}
+                    onAnalyze={handleAnalyze}
+                    onHelpClick={() => setHelpModalOpen(true)}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="mt-4 w-full max-w-md">
           <div className="flex gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
             <Lock className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
             <div className="space-y-1 leading-relaxed">
               <p className="font-semibold text-foreground">
-                Privacidade das suas credenciais
+                Credentials Privacy
               </p>
               <p>
-                Suas credenciais IMAP são usadas <strong>apenas</strong> na
-                sessão atual para conectar ao seu servidor de e-mail.{" "}
-                <strong>Nada é salvo, armazenado ou compartilhado</strong> —
-                nem em banco, nem em cookies, nem em logs. Ao desconectar, os
-                dados são descartados da memória.
+                Your IMAP credentials are used <strong>only</strong> in the
+                current session to connect to your email server.{" "}
+                <strong>Nothing is saved, stored, or shared</strong> — not in
+                database, not in cookies, not in logs. When disconnecting, the
+                data is discarded from memory.
               </p>
               <p>
-                Recomendamos o uso de uma <strong>senha de aplicativo</strong>{" "}
-                (App Password) em vez da sua senha principal.
+                We recommend using an <strong>App Password</strong> instead of
+                your main password.
               </p>
             </div>
           </div>

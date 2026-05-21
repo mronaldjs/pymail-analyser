@@ -8,24 +8,24 @@ export function SpamRiskBadge({ risk }: SpamRiskBadgeProps) {
   const getRiskStyles = () => {
     switch (risk) {
       case "high":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+        return "bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]";
       case "medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+        return "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.2)]";
       case "low":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+        return "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]";
       default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+        return "bg-slate-500/10 text-slate-400 border border-slate-500/30";
     }
   };
 
   const getRiskLabel = () => {
     switch (risk) {
       case "high":
-        return "Alto Risco";
+        return "High Risk";
       case "medium":
-        return "Médio Risco";
+        return "Medium Risk";
       case "low":
-        return "Baixo Risco";
+        return "Low Risk";
       default:
         return risk;
     }
@@ -34,13 +34,13 @@ export function SpamRiskBadge({ risk }: SpamRiskBadgeProps) {
   const getRiskDescription = () => {
     switch (risk) {
       case "high":
-        return "Alto risco — muitos envios com baixa taxa de abertura ou domínio suspeito.";
+        return "High risk — many sends with low open rate or suspicious domain.";
       case "medium":
-        return "Risco médio — sinais mistos, acompanhe o remetente.";
+        return "Medium risk — mixed signals, monitor the sender.";
       case "low":
-        return "Baixo risco — remetente provavelmente legítimo ou com boa interação.";
+        return "Low risk — sender likely legitimate or with good engagement.";
       default:
-        return "Risco desconhecido.";
+        return "Unknown risk.";
     }
   };
 

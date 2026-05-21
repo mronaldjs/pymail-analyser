@@ -13,6 +13,7 @@ from models.schemas import (
     SenderStats,
 )
 from services.domain_reputation import (
+    describe_domain_signals_en,
     describe_domain_signals_pt,
     dns_signals_to_trust,
     flush_reputation_cache,
@@ -378,10 +379,14 @@ class EmailAnalyzer:
             mailbox.folder.set("INBOX")
             for msg in mailbox.fetch(criteria, headers_only=True, mark_seen=False):
                 total += 1
-                # Cadência adaptativa: a cada mensagem até 50 (caixas pequenas
-                # precisam de feedback imediato) e depois a cada 10 para não
-                # saturar o stream.
-                if progress and (total <= 50 or total % 10 == 0):
+                # More granular progress updates for better UX:
+                # - Every message for the first 20 (immediate feedback for small inboxes)
+                # - Every 5 messages up to 100 (smooth progress for medium inboxes)
+                # - Every 10 messages beyond that (avoid saturating the stream)
+                should_report = (
+                    total <= 20 or (total <= 100 and total % 5 == 0) or total % 10 == 0
+                )
+                if progress and should_report:
                     progress(
                         {"type": "progress", "phase": "imap_fetch", "fetched": total}
                     )
@@ -450,13 +455,21 @@ class EmailAnalyzer:
                     entry["latest_date"] = msg_date
                     entry["latest_uid"] = msg.uid
 
-            # 2.5. Fallback: varre o corpo da mensagem mais recente dos grupos
-            #      sem List-Unsubscribe, ainda dentro da conexão IMAP.
-            fallback_targets = [
-                (sk, e["latest_uid"])
-                for sk, e in grouped.items()
-                if not e["unsubscribe_link"] and e["latest_uid"]
-            ]
+            # 2.5. Fallback: scan the body of the most recent message for groups
+            #      without a List-Unsubscribe header, still within the IMAP connection.
+            #      Capped to MAX_BODY_SCAN_TARGETS (default 30) sorted by email count
+            #      descending — high-volume senders are prioritised so the cap never
+            #      silently skips the most actionable senders.
+            _max_body_scan = int(os.environ.get("MAX_BODY_SCAN_TARGETS", "30"))
+            fallback_targets = sorted(
+                [
+                    (sk, e["latest_uid"])
+                    for sk, e in grouped.items()
+                    if not e["unsubscribe_link"] and e["latest_uid"]
+                ],
+                key=lambda x: grouped[x[0]]["email_count"],
+                reverse=True,
+            )[:_max_body_scan]
             if fallback_targets:
                 if progress:
                     progress(
@@ -484,9 +497,9 @@ class EmailAnalyzer:
                         if found:
                             grouped[sk]["unsubscribe_link"] = found
                         scanned += 1
-                        if progress and (
-                            scanned <= 10 or scanned % 5 == 0
-                        ):
+                        # Report every scan for better granularity since body scans
+                        # are capped to 30 messages — never too many events.
+                        if progress:
                             progress(
                                 {
                                     "type": "progress",
@@ -562,7 +575,10 @@ class EmailAnalyzer:
                                 "error": "lookup_failed",
                             }
                         dns_checked += 1
-                        if progress:
+                        # Report every DNS check or every 5 VT checks (whichever completes)
+                        # for more responsive progress feedback.
+                        should_report_dns = dns_checked <= 20 or dns_checked % 5 == 0
+                        if progress and should_report_dns:
                             progress(
                                 {
                                     "type": "progress",
@@ -623,11 +639,14 @@ class EmailAnalyzer:
 
                 primary = domains[0]
                 primary_sig = dns_cache.get(primary, {})
-                summary = describe_domain_signals_pt(primary_sig)
+                summary_pt = describe_domain_signals_pt(primary_sig)
+                summary_en = describe_domain_signals_en(primary_sig)
                 if len(domains) > 1:
-                    summary = f"{summary} (+{len(domains) - 1} domínios)"
+                    summary_pt = f"{summary_pt} (+{len(domains) - 1} domínios)"
+                    summary_en = f"{summary_en} (+{len(domains) - 1} domains)"
                 if use_vt and vm is not None and vs is not None:
-                    summary = f"{summary} · VT: mal={vm} sus={vs}"
+                    summary_pt = f"{summary_pt} · VT: mal={vm} sus={vs}"
+                    summary_en = f"{summary_en} · VT: mal={vm} sus={vs}"
 
                 domain_reputation = DomainReputation(
                     primary_domain=primary,
@@ -642,7 +661,8 @@ class EmailAnalyzer:
                     dns_trust=round(dns_trust_min, 4)
                     if dns_trust_min is not None
                     else None,
-                    summary_pt=summary,
+                    summary_pt=summary_pt,
+                    summary_en=summary_en,
                     virustotal_malicious=vm if use_vt else None,
                     virustotal_suspicious=vs if use_vt else None,
                 )

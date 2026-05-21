@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
+test('main flow: analyze and archive selected', async ({ page }) => {
   let archivePayload: unknown = null;
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -93,26 +93,26 @@ test('fluxo principal: analisar e arquivar selecionados', async ({ page }) => {
 
   await page.goto('/');
 
-  await page.getByPlaceholder('seu.email@gmail.com').fill('user@gmail.com');
-  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByPlaceholder('your.email@gmail.com').fill('user@gmail.com');
+  await page.getByRole('button', { name: 'Continue' }).click();
 
   await page.getByPlaceholder('••••••••').fill('fake-app-password');
-  await page.getByRole('button', { name: 'Analisar Inbox' }).click();
+  await page.getByRole('button', { name: 'Analyze Inbox' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Painel da Caixa de Entrada' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Inbox Dashboard' })).toBeVisible();
 
-  await page.getByLabel('Selecionar Promoções Diárias').check();
-  await page.getByRole('button', { name: 'Arquivar selecionados' }).click();
+  await page.getByLabel('Select Promoções Diárias').check();
+  await page.getByRole('button', { name: 'Archive Selected' }).click();
   const archiveResponse = page.waitForResponse((response) =>
     response.url().includes('/archive') && response.status() === 200,
   );
-  await page.getByRole('button', { name: 'Confirmar Arquivamento' }).click();
+  await page.getByRole('button', { name: 'Confirm Archive' }).click();
   await archiveResponse;
 
   await expect(page.locator('text=Promoções Diárias')).toHaveCount(0, {
     timeout: 15000,
   });
-  await expect(page.getByRole('button', { name: 'Arquivar selecionados' })).toBeDisabled({
+  await expect(page.getByRole('button', { name: 'Archive Selected' })).toBeDisabled({
     timeout: 15000,
   });
 
