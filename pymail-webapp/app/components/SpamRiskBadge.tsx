@@ -2,54 +2,43 @@ interface SpamRiskBadgeProps {
   risk?: string;
 }
 
+const RISK: Record<string, { color: string; label: string; desc: string }> = {
+  high: {
+    color: "#f7768e",
+    label: "High",
+    desc: "High risk — many sends with low open rate or suspicious domain.",
+  },
+  medium: {
+    color: "#e5c07b",
+    label: "Medium",
+    desc: "Medium risk — mixed signals, monitor the sender.",
+  },
+  low: {
+    color: "#98c379",
+    label: "Low",
+    desc: "Low risk — sender likely legitimate or with good engagement.",
+  },
+};
+
 export function SpamRiskBadge({ risk }: SpamRiskBadgeProps) {
   if (!risk) return null;
-
-  const getRiskStyles = () => {
-    switch (risk) {
-      case "high":
-        return "bg-red-500/10 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]";
-      case "medium":
-        return "bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.2)]";
-      case "low":
-        return "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]";
-      default:
-        return "bg-slate-500/10 text-slate-400 border border-slate-500/30";
-    }
-  };
-
-  const getRiskLabel = () => {
-    switch (risk) {
-      case "high":
-        return "High Risk";
-      case "medium":
-        return "Medium Risk";
-      case "low":
-        return "Low Risk";
-      default:
-        return risk;
-    }
-  };
-
-  const getRiskDescription = () => {
-    switch (risk) {
-      case "high":
-        return "High risk — many sends with low open rate or suspicious domain.";
-      case "medium":
-        return "Medium risk — mixed signals, monitor the sender.";
-      case "low":
-        return "Low risk — sender likely legitimate or with good engagement.";
-      default:
-        return "Unknown risk.";
-    }
+  const meta = RISK[risk] ?? {
+    color: "#a8b0bd",
+    label: risk,
+    desc: "Unknown risk.",
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getRiskStyles()}`}
-      title={getRiskDescription()}
+      className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wide"
+      style={{ color: meta.color }}
+      title={meta.desc}
     >
-      {getRiskLabel()}
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: meta.color }}
+      />
+      {meta.label}
     </span>
   );
 }

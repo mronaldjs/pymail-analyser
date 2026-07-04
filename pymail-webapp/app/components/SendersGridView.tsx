@@ -26,10 +26,10 @@ export default function SendersGridView({
         <Card
           key={i}
           tabIndex={0}
-          className={`group relative overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:shadow-primary/20 hover:scale-[1.02] hover:-translate-y-1 cursor-pointer ${
+          className={`group lift relative cursor-pointer overflow-hidden ${
             selectedKeys.has(getSenderKey(sender))
-              ? "border-primary/50 bg-primary/10 shadow-lg shadow-primary/20 scale-[1.01]"
-              : "border-white/5 hover:border-primary/30"
+              ? "border-primary/40 bg-primary/10"
+              : "border-border hover:border-primary/40"
           }`}
           onClick={() => onToggleSelection(getSenderKey(sender))}
           onKeyDown={(event) => {
@@ -89,7 +89,11 @@ export default function SendersGridView({
                 <p className="text-xs text-muted-foreground">Open Rate</p>
                 <p className="font-semibold">
                   <span
-                    className={`${sender.open_rate < 20 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                    className={
+                      sender.open_rate < 20
+                        ? "text-destructive"
+                        : "text-[#98c379]"
+                    }
                   >
                     {sender.open_rate}%
                   </span>

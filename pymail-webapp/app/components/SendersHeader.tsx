@@ -62,14 +62,14 @@ export function SendersHeader({
           </div>
         </div>
 
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/40">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+          <p className="eyebrow">
             Grouping Mode:{" "}
             {groupingMode === "tenant"
               ? "tenant (detailed)"
               : "provider (consolidated)"}
           </p>
-          <p className="text-xs text-muted-foreground">{groupingHint}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{groupingHint}</p>
         </div>
 
         {/* Source filters removed: tag list eliminated due to displaying too many irrelevant labels */}
