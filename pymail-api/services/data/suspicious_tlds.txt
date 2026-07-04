@@ -1,0 +1,15 @@
+# TLD suffixes frequently used in spam / disposable domains (heuristic).
+# One entry per line including the leading dot; matched against the final label.
+# Override the file path with the SUSPICIOUS_TLDS_FILE env var.
+.xyz
+.top
+.click
+.bid
+.loan
+.gq
+.tk
+.ml
+.cf
+.ga
+.pw
+.zip

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 from typing import List, Optional
 from datetime import date
 
@@ -23,7 +23,7 @@ class DomainReputation(BaseModel):
 class IMAPCredentials(BaseModel):
     host: str = Field(..., description="IMAP Server Host (e.g., imap.gmail.com)")
     email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., description="App Password or User Password")
+    password: SecretStr = Field(..., description="App Password or User Password")
     days_limit: Optional[int] = Field(None, description="Number of days to look back for analysis")
     start_date: Optional[date] = Field(None, description="Start date for custom range (YYYY-MM-DD)")
     end_date: Optional[date] = Field(None, description="End date for custom range (YYYY-MM-DD)")

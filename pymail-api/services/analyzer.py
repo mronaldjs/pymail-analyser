@@ -2,6 +2,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import tldextract
@@ -74,59 +75,32 @@ def normalize_source(sender_email: str, sender_name: str) -> str:
     return "unknown"
 
 
-# Domínios/hosts frequentemente associados a serviços conhecidos (remetentes "oficiais").
-_OFFICIAL_DOMAIN_SUFFIXES: Tuple[str, ...] = (
-    "gmail.com",
-    "googlemail.com",
-    "google.com",
-    "outlook.com",
-    "hotmail.com",
-    "live.com",
-    "msn.com",
-    "icloud.com",
-    "me.com",
-    "mac.com",
-    "yahoo.com",
-    "yahoo.com.br",
-    "proton.me",
-    "protonmail.com",
-    "microsoft.com",
-    "apple.com",
-    "amazon.com",
-    "paypal.com",
-    "linkedin.com",
-    "linkedinmail.com",
-    "facebook.com",
-    "meta.com",
-    "instagram.com",
-    "twitter.com",
-    "x.com",
-    "github.com",
-    "slack.com",
-    "zoom.us",
-    "netflix.com",
-    "spotify.com",
-    "stripe.com",
-    "gov.br",
-    "jus.br",
-    "ufg.br",
-    "discente.ufg.br",
-)
+def _load_domain_list(filename: str, env_var: str) -> Tuple[str, ...]:
+    """Load a newline-delimited domain/TLD list from services/data/.
 
-# TLDs frequentemente usados em spam / domínios descartáveis (heurística).
-_SUSPICIOUS_TLD_SUFFIXES: Tuple[str, ...] = (
-    ".xyz",
-    ".top",
-    ".click",
-    ".bid",
-    ".loan",
-    ".gq",
-    ".tk",
-    ".ml",
-    ".cf",
-    ".ga",
-    ".pw",
-    ".zip",
+    Blank lines and ``#`` comments are ignored; entries are lowercased. Set the
+    *env_var* environment variable to point at a custom file and override the
+    bundled default.
+    """
+    raw = os.environ.get(env_var, "").strip()
+    path = Path(raw) if raw else (Path(__file__).resolve().parent / "data" / filename)
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ()
+    return tuple(
+        s.lower() for line in lines if (s := line.strip()) and not s.startswith("#")
+    )
+
+
+# Domains associated with well-known services ("official" senders) and spam-prone
+# TLDs. Sourced from data files so the heuristics can be tuned without code
+# changes (override paths via OFFICIAL_DOMAINS_FILE / SUSPICIOUS_TLDS_FILE).
+_OFFICIAL_DOMAIN_SUFFIXES: Tuple[str, ...] = _load_domain_list(
+    "official_domains.txt", "OFFICIAL_DOMAINS_FILE"
+)
+_SUSPICIOUS_TLD_SUFFIXES: Tuple[str, ...] = _load_domain_list(
+    "suspicious_tlds.txt", "SUSPICIOUS_TLDS_FILE"
 )
 
 # O(1) lookup sets built once at module load — used by _is_official_domain and
@@ -188,6 +162,36 @@ def _build_from_criteria(sender_set: set):
     return result
 
 
+# ---------------------------------------------------------------------------
+# Scoring tuning constants for _compute_rank_and_risk.
+# rank_score orders senders (higher = more likely spam / less trusted); the
+# multipliers below nudge the base spam_score up or down per signal. These are
+# heuristics (not calibrated against a labelled dataset) — centralised here so
+# they can be reviewed and tuned in one place. The exact values are locked by the
+# golden tests in tests/test_analyzer.py.
+# ---------------------------------------------------------------------------
+
+# Rank multipliers (applied to the base spam_score).
+_RANK_OFFICIAL_FACTOR = 0.18       # known official domain → strong down-weight
+_RANK_HIGH_UNSUB_FACTOR = 0.52     # frequent List-Unsubscribe → likely legit bulk
+_RANK_LOW_UNSUB_FACTOR = 1.18      # rarely offers unsubscribe → nudge up
+_RANK_SUSPICIOUS_FACTOR = 1.28     # suspicious TLD (and not official) → nudge up
+_RANK_DNS_TRUST_WEIGHT = 0.28      # scales the DNS-trust adjustment (±)
+_RANK_VT_PER_FLAG = 0.13           # per-VirusTotal-flag increase …
+_RANK_VT_CAP = 0.55                # … capped at this fraction
+
+# Unsubscribe-ratio thresholds for the rank multipliers.
+_UNSUB_RATIO_HIGH = 0.45           # ≥ → apply _RANK_HIGH_UNSUB_FACTOR
+_UNSUB_RATIO_LOW = 0.12            # < → apply _RANK_LOW_UNSUB_FACTOR
+
+# spam_risk label thresholds.
+_RISK_VT_HIGH_FLAGS = 2            # ≥ VT flags → "high"
+_RISK_LOW_UNSUB_RATIO = 0.42       # ≥ (or official) → "low"
+_RISK_HIGH_UNSUB_RATIO = 0.15      # < (and not official, enough volume) → "high"
+_RISK_HIGH_MIN_EMAILS = 2          # min volume for the low-unsub "high" rule
+_RISK_HIGH_DNS_TRUST = -0.35       # ≤ (and not official) → "high"
+
+
 def _compute_rank_and_risk(
     spam_score: float,
     email_count: int,
@@ -213,27 +217,35 @@ def _compute_rank_and_risk(
 
     rank = float(spam_score)
     if official:
-        rank *= 0.18
-    if unsub_ratio >= 0.45:
-        rank *= 0.52
-    elif unsub_ratio < 0.12:
-        rank *= 1.18
+        rank *= _RANK_OFFICIAL_FACTOR
+    if unsub_ratio >= _UNSUB_RATIO_HIGH:
+        rank *= _RANK_HIGH_UNSUB_FACTOR
+    elif unsub_ratio < _UNSUB_RATIO_LOW:
+        rank *= _RANK_LOW_UNSUB_FACTOR
     if suspicious and not official:
-        rank *= 1.28
+        rank *= _RANK_SUSPICIOUS_FACTOR
 
     if dns_trust_min is not None:
-        rank *= 1.0 - 0.28 * dns_trust_min
+        rank *= 1.0 - _RANK_DNS_TRUST_WEIGHT * dns_trust_min
     if vt_flag_total is not None and vt_flag_total > 0:
-        rank *= 1.0 + min(0.55, 0.13 * vt_flag_total)
+        rank *= 1.0 + min(_RANK_VT_CAP, _RANK_VT_PER_FLAG * vt_flag_total)
 
     # Rótulo: prioriza sinais de remetente legítimo (unsub + domínio conhecido).
-    if vt_flag_total is not None and vt_flag_total >= 2:
+    if vt_flag_total is not None and vt_flag_total >= _RISK_VT_HIGH_FLAGS:
         risk = "high"
-    elif official or unsub_ratio >= 0.42:
+    elif official or unsub_ratio >= _RISK_LOW_UNSUB_RATIO:
         risk = "low"
-    elif suspicious or (not official and unsub_ratio < 0.15 and email_count >= 2):
+    elif suspicious or (
+        not official
+        and unsub_ratio < _RISK_HIGH_UNSUB_RATIO
+        and email_count >= _RISK_HIGH_MIN_EMAILS
+    ):
         risk = "high"
-    elif dns_trust_min is not None and dns_trust_min <= -0.35 and not official:
+    elif (
+        dns_trust_min is not None
+        and dns_trust_min <= _RISK_HIGH_DNS_TRUST
+        and not official
+    ):
         risk = "high"
     else:
         risk = "medium"
@@ -356,161 +368,22 @@ class EmailAnalyzer:
     def analyze(
         self, progress: Optional[Callable[[dict], None]] = None
     ) -> AnalysisResponse:
-        # 1. Build IMAP date criteria.
-        if self.credentials.start_date and self.credentials.end_date:
-            criteria = A(
-                date_gte=self.credentials.start_date, date_lt=self.credentials.end_date
-            )
-        else:
-            days = self.credentials.days_limit if self.credentials.days_limit else 30
-            criteria = A(date_gte=date.today() - timedelta(days=days))
+        """Orchestrate the analysis: fetch + group, enrich reputation, then score.
 
-        grouped: Dict[str, Dict[str, Any]] = {}
-        total = 0
-        # Per-request memoization of normalize_source: avoids repeated PSL
-        # parses for the same (email, name) pair seen across many messages.
-        _source_cache: Dict[Tuple[str, str], str] = {}
+        The IMAP connection is opened once, kept for the header fetch and the
+        best-effort unsubscribe body-scan, and closed before any external
+        (DNS / VirusTotal) I/O begins.
+        """
+        criteria = self._build_criteria()
 
-        # 2. Single-pass IMAP fetch: headers only, never marks messages as read,
-        #    INBOX selected explicitly, IMAP connection closed before any external I/O.
+        # Single-pass IMAP fetch: headers only, never marks messages as read,
+        # INBOX selected explicitly, connection closed before any external I/O.
         with MailBox(self.credentials.host).login(
-            self.credentials.email, self.credentials.password
+            self.credentials.email, self.credentials.password.get_secret_value()
         ) as mailbox:
             mailbox.folder.set("INBOX")
-            for msg in mailbox.fetch(criteria, headers_only=True, mark_seen=False):
-                total += 1
-                # More granular progress updates for better UX:
-                # - Every message for the first 20 (immediate feedback for small inboxes)
-                # - Every 5 messages up to 100 (smooth progress for medium inboxes)
-                # - Every 10 messages beyond that (avoid saturating the stream)
-                should_report = (
-                    total <= 20 or (total <= 100 and total % 5 == 0) or total % 10 == 0
-                )
-                if progress and should_report:
-                    progress(
-                        {"type": "progress", "phase": "imap_fetch", "fetched": total}
-                    )
-
-                sender_email = (
-                    msg.from_values.email if msg.from_values else "unknown@unknown.com"
-                )
-                sender_name = (
-                    msg.from_values.name if msg.from_values else "Unknown Sender"
-                )
-
-                _key = (sender_email, sender_name)
-                source_key = _source_cache.get(_key)
-                if source_key is None:
-                    source_key = normalize_source(sender_email, sender_name)
-                    _source_cache[_key] = source_key
-
-                is_read = 1 if "SEEN" in msg.flags else 0
-
-                # Single dict lookup — avoids the redundant second .get() call
-                # that the truthiness guard previously required.
-                _unsub_vals = msg.headers.get("list-unsubscribe")
-                list_unsub = _unsub_vals[0] if _unsub_vals else None
-
-                sender_domain = _extract_domain(sender_email)
-
-                entry = grouped.get(source_key)
-                if entry is None:
-                    entry = {
-                        "source_key": source_key,
-                        "sender_name": sender_name,
-                        "sender_email": sender_email,
-                        "sender_emails_set": set(),
-                        # domains_set is populated here so the post-fetch
-                        # extraction pass and the per-group scoring pass are
-                        # both eliminated — three _extract_domain calls reduced
-                        # to one per unique (sender_email, source_key) pair.
-                        "domains_set": set(),
-                        "email_count": 0,
-                        "read_sum": 0,
-                        "unsub_count": 0,
-                        "unsubscribe_link": list_unsub,
-                        # UID da mensagem mais recente do grupo — usado pelo
-                        # fallback de body-scan quando falta List-Unsubscribe.
-                        "latest_uid": None,
-                        "latest_date": None,
-                    }
-                    grouped[source_key] = entry
-
-                entry["email_count"] += 1
-                entry["read_sum"] += is_read
-                if list_unsub:
-                    entry["unsub_count"] += 1
-                    if not entry["unsubscribe_link"]:
-                        entry["unsubscribe_link"] = list_unsub
-                entry["sender_emails_set"].add(sender_email)
-                entry["domains_set"].add(sender_domain)
-                if not entry["sender_name"] and sender_name:
-                    entry["sender_name"] = sender_name
-
-                # Rastreia o UID da mensagem mais recente do grupo.
-                msg_date = getattr(msg, "date", None)
-                if entry["latest_date"] is None or (
-                    msg_date is not None and msg_date > entry["latest_date"]
-                ):
-                    entry["latest_date"] = msg_date
-                    entry["latest_uid"] = msg.uid
-
-            # 2.5. Fallback: scan the body of the most recent message for groups
-            #      without a List-Unsubscribe header, still within the IMAP connection.
-            #      Capped to MAX_BODY_SCAN_TARGETS (default 30) sorted by email count
-            #      descending — high-volume senders are prioritised so the cap never
-            #      silently skips the most actionable senders.
-            _max_body_scan = int(os.environ.get("MAX_BODY_SCAN_TARGETS", "30"))
-            fallback_targets = sorted(
-                [
-                    (sk, e["latest_uid"])
-                    for sk, e in grouped.items()
-                    if not e["unsubscribe_link"] and e["latest_uid"]
-                ],
-                key=lambda x: grouped[x[0]]["email_count"],
-                reverse=True,
-            )[:_max_body_scan]
-            if fallback_targets:
-                if progress:
-                    progress(
-                        {
-                            "type": "progress",
-                            "phase": "unsub_scan",
-                            "checked": 0,
-                            "total": len(fallback_targets),
-                        }
-                    )
-                uid_to_key = {uid: sk for sk, uid in fallback_targets}
-                uid_list = list(uid_to_key.keys())
-                scanned = 0
-                try:
-                    for body_msg in mailbox.fetch(
-                        A(uid=",".join(uid_list)), mark_seen=False
-                    ):
-                        sk = uid_to_key.get(body_msg.uid)
-                        if not sk:
-                            continue
-                        found = _extract_unsubscribe_from_body(
-                            getattr(body_msg, "html", None),
-                            getattr(body_msg, "text", None),
-                        )
-                        if found:
-                            grouped[sk]["unsubscribe_link"] = found
-                        scanned += 1
-                        # Report every scan for better granularity since body scans
-                        # are capped to 30 messages — never too many events.
-                        if progress:
-                            progress(
-                                {
-                                    "type": "progress",
-                                    "phase": "unsub_scan",
-                                    "checked": scanned,
-                                    "total": len(fallback_targets),
-                                }
-                            )
-                except Exception:
-                    # Fallback é best-effort: nunca deve derrubar a análise.
-                    pass
+            grouped, total = self._fetch_and_group(mailbox, criteria, progress)
+            self._scan_unsub_fallback(mailbox, grouped, progress)
 
         # IMAP connection is now closed — all external I/O starts here.
         if progress:
@@ -524,18 +397,220 @@ class EmailAnalyzer:
                 source_grouping_mode=_SOURCE_GROUPING_MODE,
             )
 
-        # 3. Collect unique domains from the already-populated domains_set in
-        #    each group — no second iteration over sender_emails_set needed.
+        all_domains = self._collect_all_domains(grouped)
+        use_vt = bool(os.environ.get("VIRUSTOTAL_API_KEY", "").strip())
+        dns_cache, vt_cache = self._enrich_reputation(all_domains, use_vt, progress)
+
+        # Persist updated reputation cache to disk in one write after all
+        # parallel lookups have finished.
+        flush_reputation_cache()
+
+        ignored_senders, health_score = self._build_sender_stats(
+            grouped, dns_cache, vt_cache, use_vt
+        )
+
+        return AnalysisResponse(
+            total_emails_scanned=total,
+            ignored_senders=ignored_senders,
+            health_score=health_score,
+            source_grouping_mode=_SOURCE_GROUPING_MODE,
+        )
+
+    # ------------------------------------------------------------------
+    # analyze() stages
+    # ------------------------------------------------------------------
+
+    def _build_criteria(self):
+        """Build the IMAP date-range search criterion from the credentials."""
+        if self.credentials.start_date and self.credentials.end_date:
+            return A(
+                date_gte=self.credentials.start_date, date_lt=self.credentials.end_date
+            )
+        days = self.credentials.days_limit if self.credentials.days_limit else 30
+        return A(date_gte=date.today() - timedelta(days=days))
+
+    @staticmethod
+    def _fetch_and_group(
+        mailbox,
+        criteria,
+        progress: Optional[Callable[[dict], None]],
+    ) -> Tuple[Dict[str, Dict[str, Any]], int]:
+        """Single-pass fetch of INBOX headers, grouped by source_key.
+
+        Returns ``(grouped, total)``. Headers only; never marks messages as read.
+        """
+        grouped: Dict[str, Dict[str, Any]] = {}
+        total = 0
+        # Per-request memoization of normalize_source: avoids repeated PSL
+        # parses for the same (email, name) pair seen across many messages.
+        _source_cache: Dict[Tuple[str, str], str] = {}
+
+        for msg in mailbox.fetch(criteria, headers_only=True, mark_seen=False):
+            total += 1
+            # More granular progress updates for better UX:
+            # - Every message for the first 20 (immediate feedback for small inboxes)
+            # - Every 5 messages up to 100 (smooth progress for medium inboxes)
+            # - Every 10 messages beyond that (avoid saturating the stream)
+            should_report = (
+                total <= 20 or (total <= 100 and total % 5 == 0) or total % 10 == 0
+            )
+            if progress and should_report:
+                progress(
+                    {"type": "progress", "phase": "imap_fetch", "fetched": total}
+                )
+
+            sender_email = (
+                msg.from_values.email if msg.from_values else "unknown@unknown.com"
+            )
+            sender_name = (
+                msg.from_values.name if msg.from_values else "Unknown Sender"
+            )
+
+            _key = (sender_email, sender_name)
+            source_key = _source_cache.get(_key)
+            if source_key is None:
+                source_key = normalize_source(sender_email, sender_name)
+                _source_cache[_key] = source_key
+
+            is_read = 1 if "SEEN" in msg.flags else 0
+
+            # Single dict lookup — avoids the redundant second .get() call
+            # that the truthiness guard previously required.
+            _unsub_vals = msg.headers.get("list-unsubscribe")
+            list_unsub = _unsub_vals[0] if _unsub_vals else None
+
+            sender_domain = _extract_domain(sender_email)
+
+            entry = grouped.get(source_key)
+            if entry is None:
+                entry = {
+                    "source_key": source_key,
+                    "sender_name": sender_name,
+                    "sender_email": sender_email,
+                    "sender_emails_set": set(),
+                    # domains_set is populated here so the post-fetch
+                    # extraction pass and the per-group scoring pass are
+                    # both eliminated — three _extract_domain calls reduced
+                    # to one per unique (sender_email, source_key) pair.
+                    "domains_set": set(),
+                    "email_count": 0,
+                    "read_sum": 0,
+                    "unsub_count": 0,
+                    "unsubscribe_link": list_unsub,
+                    # UID da mensagem mais recente do grupo — usado pelo
+                    # fallback de body-scan quando falta List-Unsubscribe.
+                    "latest_uid": None,
+                    "latest_date": None,
+                }
+                grouped[source_key] = entry
+
+            entry["email_count"] += 1
+            entry["read_sum"] += is_read
+            if list_unsub:
+                entry["unsub_count"] += 1
+                if not entry["unsubscribe_link"]:
+                    entry["unsubscribe_link"] = list_unsub
+            entry["sender_emails_set"].add(sender_email)
+            entry["domains_set"].add(sender_domain)
+            if not entry["sender_name"] and sender_name:
+                entry["sender_name"] = sender_name
+
+            # Rastreia o UID da mensagem mais recente do grupo.
+            msg_date = getattr(msg, "date", None)
+            if entry["latest_date"] is None or (
+                msg_date is not None and msg_date > entry["latest_date"]
+            ):
+                entry["latest_date"] = msg_date
+                entry["latest_uid"] = msg.uid
+
+        return grouped, total
+
+    @staticmethod
+    def _scan_unsub_fallback(
+        mailbox,
+        grouped: Dict[str, Dict[str, Any]],
+        progress: Optional[Callable[[dict], None]],
+    ) -> None:
+        """Best-effort scan of the most recent message body for groups without a
+        List-Unsubscribe header, still within the open IMAP connection.
+
+        Capped to MAX_BODY_SCAN_TARGETS (default 30) sorted by email count
+        descending — high-volume senders are prioritised so the cap never
+        silently skips the most actionable senders. Never raises.
+        """
+        _max_body_scan = int(os.environ.get("MAX_BODY_SCAN_TARGETS", "30"))
+        fallback_targets = sorted(
+            [
+                (sk, e["latest_uid"])
+                for sk, e in grouped.items()
+                if not e["unsubscribe_link"] and e["latest_uid"]
+            ],
+            key=lambda x: grouped[x[0]]["email_count"],
+            reverse=True,
+        )[:_max_body_scan]
+        if fallback_targets:
+            if progress:
+                progress(
+                    {
+                        "type": "progress",
+                        "phase": "unsub_scan",
+                        "checked": 0,
+                        "total": len(fallback_targets),
+                    }
+                )
+            uid_to_key = {uid: sk for sk, uid in fallback_targets}
+            uid_list = list(uid_to_key.keys())
+            scanned = 0
+            try:
+                for body_msg in mailbox.fetch(
+                    A(uid=",".join(uid_list)), mark_seen=False
+                ):
+                    sk = uid_to_key.get(body_msg.uid)
+                    if not sk:
+                        continue
+                    found = _extract_unsubscribe_from_body(
+                        getattr(body_msg, "html", None),
+                        getattr(body_msg, "text", None),
+                    )
+                    if found:
+                        grouped[sk]["unsubscribe_link"] = found
+                    scanned += 1
+                    # Report every scan for better granularity since body scans
+                    # are capped to 30 messages — never too many events.
+                    if progress:
+                        progress(
+                            {
+                                "type": "progress",
+                                "phase": "unsub_scan",
+                                "checked": scanned,
+                                "total": len(fallback_targets),
+                            }
+                        )
+            except Exception:
+                # Fallback é best-effort: nunca deve derrubar a análise.
+                pass
+
+    @staticmethod
+    def _collect_all_domains(grouped: Dict[str, Dict[str, Any]]) -> set:
+        """Unique sender domains across all groups (excluding 'unknown')."""
         all_domains: set = set()
         for g in grouped.values():
             all_domains.update(g["domains_set"])
         all_domains.discard("unknown")
+        return all_domains
 
-        # 4. Parallel DNS + VirusTotal lookups via a single shared pool.
-        #    A unified future_meta dict lets one as_completed loop drain both
-        #    DNS and VT results as they arrive — VT futures no longer sit idle
-        #    until all DNS futures have been collected.
-        use_vt = bool(os.environ.get("VIRUSTOTAL_API_KEY", "").strip())
+    @staticmethod
+    def _enrich_reputation(
+        all_domains: set,
+        use_vt: bool,
+        progress: Optional[Callable[[dict], None]],
+    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Optional[Tuple[int, int]]]]:
+        """Parallel DNS + optional VirusTotal lookups via a single shared pool.
+
+        A unified future_meta dict lets one as_completed loop drain both DNS and
+        VT results as they arrive — VT futures no longer sit idle until all DNS
+        futures have been collected.
+        """
         dns_cache: Dict[str, Dict[str, Any]] = {}
         vt_cache: Dict[str, Optional[Tuple[int, int]]] = {}
 
@@ -593,15 +668,29 @@ class EmailAnalyzer:
                         except Exception:
                             vt_cache[d] = None
 
-        # Persist updated reputation cache to disk in one write after all
-        # parallel lookups have finished.
-        flush_reputation_cache()
+        return dns_cache, vt_cache
 
-        # 5. Materialize and sort by rank score (O(k log k), k = number of groups).
+    @staticmethod
+    def _build_sender_stats(
+        grouped: Dict[str, Dict[str, Any]],
+        dns_cache: Dict[str, Dict[str, Any]],
+        vt_cache: Dict[str, Optional[Tuple[int, int]]],
+        use_vt: bool,
+    ) -> Tuple[List[SenderStats], int]:
+        """Score each group, sort by rank score, and build the response rows.
+
+        Returns ``(ignored_senders, health_score)``.
+        """
+        # Materialize and sort by rank score (O(k log k), k = number of groups).
         stats_rows: List[Dict[str, Any]] = []
         total_spam_score = 0.0
 
         for _, row in grouped.items():
+            # HEURISTIC: open_rate is derived from the IMAP \Seen flag, which is a
+            # weak proxy for engagement — recently-arrived legitimate mail is often
+            # still unread, inflating spam_score. Treat the score as a ranking hint,
+            # not a verdict (surfaced as such in the UI). A fuller signal would also
+            # weigh message age / frequency; that is deliberately out of scope here.
             open_rate_ratio = (
                 row["read_sum"] / row["email_count"] if row["email_count"] else 0.0
             )
@@ -698,7 +787,6 @@ class EmailAnalyzer:
 
         stats_rows.sort(key=lambda r: r["rank_score"], reverse=True)
 
-        # 6. Format response.
         ignored_senders = [
             SenderStats(
                 sender_name=row["sender_name"],
@@ -716,13 +804,7 @@ class EmailAnalyzer:
         ]
 
         health_score = max(0, min(100, 100 - int(total_spam_score / 5)))
-
-        return AnalysisResponse(
-            total_emails_scanned=total,
-            ignored_senders=ignored_senders,
-            health_score=health_score,
-            source_grouping_mode=_SOURCE_GROUPING_MODE,
-        )
+        return ignored_senders, health_score
 
     def delete_emails(self, sender_emails: List[str]) -> Dict[str, int]:
         sender_set = {
@@ -734,7 +816,7 @@ class EmailAnalyzer:
             return {"deleted": 0}
 
         with MailBox(self.credentials.host).login(
-            self.credentials.email, self.credentials.password
+            self.credentials.email, self.credentials.password.get_secret_value()
         ) as mailbox:
             trash_folder = self._resolve_folder(
                 mailbox,
@@ -768,7 +850,7 @@ class EmailAnalyzer:
             return {"archived": 0, "not_archived": 0}
 
         with MailBox(self.credentials.host).login(
-            self.credentials.email, self.credentials.password
+            self.credentials.email, self.credentials.password.get_secret_value()
         ) as mailbox:
             archive_folder = self._resolve_folder(
                 mailbox,
