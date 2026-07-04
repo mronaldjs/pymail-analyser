@@ -1,0 +1,25 @@
+# Development overrides — automatically merged by `docker compose up`.
+#
+# Each service is built only up to the dependency stage (which has the deps but
+# not the baked app/build), then the working tree is bind-mounted over /app so
+# changes hot-reload. Run production images instead with:
+#   docker compose -f docker-compose.yml up
+services:
+  backend:
+    build:
+      target: builder
+    volumes:
+      - ./pymail-api:/app
+    environment:
+      - PYTHONPATH=/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  frontend:
+    build:
+      target: deps
+    volumes:
+      - ./pymail-webapp:/app
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    command: ["npm", "run", "dev"]

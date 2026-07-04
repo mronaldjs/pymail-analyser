@@ -22,10 +22,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f pymail-api/requirements.txt ]; then pip install -r pymail-api/requirements.txt; fi
+          pip install ruff==0.14.6
+      - name: Lint (ruff)
+        run: |
+          cd pymail-api
+          ruff check .
       - name: Run backend tests
         run: |
           cd pymail-api
           pytest -q
+      - name: Check OpenAPI schema is up to date
+        run: |
+          make openapi
+          git diff --exit-code pymail-webapp/openapi.json \
+            || (echo "::error::openapi.json is stale — run 'make openapi' and commit the result." && exit 1)
 
   frontend:
     name: Frontend tests (Node)
@@ -42,6 +52,20 @@ jobs:
         run: |
           cd pymail-webapp
           npm ci
+      - name: Lint
+        run: |
+          cd pymail-webapp
+          npm run lint
+      - name: Typecheck
+        run: |
+          cd pymail-webapp
+          npx tsc --noEmit
+      - name: Check generated API types are up to date
+        run: |
+          cd pymail-webapp
+          npm run gen:types
+          git diff --exit-code types/api.generated.ts \
+            || (echo "::error::api.generated.ts is stale — run 'npm run gen:types' and commit the result." && exit 1)
       - name: Run frontend tests
         run: |
           cd pymail-webapp
