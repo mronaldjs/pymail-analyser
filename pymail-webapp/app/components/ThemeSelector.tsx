@@ -1,60 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Palette } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  getThemeList,
-  applyTheme,
-  saveThemePreference,
-  loadThemePreference,
+  getAccentList,
+  applyAccent,
+  saveAccentPreference,
+  loadAccentPreference,
 } from "../styles/themes";
 
 export function ThemeSelector() {
-  const [currentTheme, setCurrentTheme] = useState<string>("catppuccin");
-  const themes = getThemeList();
+  const [accent, setAccent] = useState("mauve");
+  const [mounted, setMounted] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const accents = getAccentList();
 
   useEffect(() => {
-    // Load saved theme on mount. This is a client-only localStorage read, so it
-    // must run in an effect (localStorage is unavailable during SSR) — the
-    // one-time state sync it requires is expected here.
-    const savedTheme = loadThemePreference();
+    // Client-only: restore the saved accent and mark mounted so the theme
+    // toggle can reflect the real resolved theme (unavailable during SSR).
+    const saved = loadAccentPreference();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentTheme(savedTheme);
-    applyTheme(savedTheme);
+    setAccent(saved);
+    applyAccent(saved);
+    setMounted(true);
   }, []);
 
-  const handleThemeChange = (themeName: string) => {
-    setCurrentTheme(themeName);
-    applyTheme(themeName);
-    saveThemePreference(themeName);
+  const pickAccent = (name: string) => {
+    setAccent(name);
+    applyAccent(name);
+    saveAccentPreference(name);
   };
 
+  const isDark = mounted ? resolvedTheme === "dark" : true;
+
   return (
-    <div className="flex items-center gap-2 bg-card/50 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border/50 shadow-sm">
-      <Palette className="h-4 w-4 text-primary" />
-      <Select value={currentTheme} onValueChange={handleThemeChange}>
-        <SelectTrigger className="w-[160px] h-8 border-0 bg-transparent shadow-none hover:bg-transparent focus:ring-0">
-          <SelectValue placeholder="Select theme" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[400px]">
-          {themes.map((theme) => (
-            <SelectItem
-              key={theme.value}
-              value={theme.value}
-              className="cursor-pointer"
-            >
-              {theme.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card/50 px-3 py-1.5 backdrop-blur-sm">
+      <div
+        className="flex items-center gap-1.5"
+        role="group"
+        aria-label="Accent color"
+      >
+        {accents.map((a) => {
+          const active = accent === a.name;
+          return (
+            <button
+              key={a.name}
+              type="button"
+              aria-label={`Accent ${a.label}`}
+              aria-pressed={active}
+              title={a.label}
+              onClick={() => pickAccent(a.name)}
+              className="h-4 w-4 rounded-full transition-transform hover:scale-110 cursor-pointer"
+              style={{
+                backgroundColor: a.hex,
+                boxShadow: active
+                  ? `0 0 0 2px var(--background), 0 0 0 3.5px ${a.hex}`
+                  : "none",
+              }}
+            />
+          );
+        })}
+      </div>
+      <span className="h-4 w-px bg-border" aria-hidden />
+      <button
+        type="button"
+        aria-label="Toggle light and dark"
+        title={isDark ? "Switch to light" : "Switch to dark"}
+        onClick={() => setTheme(isDark ? "light" : "dark")}
+        className="text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+      >
+        {isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+      </button>
     </div>
   );
 }

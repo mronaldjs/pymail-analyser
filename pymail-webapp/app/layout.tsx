@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fira_Code } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const firaCode = Fira_Code({
+  subsets: ["latin"],
+  variable: "--font-fira-code",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Email Analyser",
@@ -22,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="en" className={firaCode.variable} suppressHydrationWarning>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>
