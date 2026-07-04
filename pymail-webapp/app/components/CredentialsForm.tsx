@@ -195,7 +195,7 @@ export function CredentialsForm({
                     })
                   }
                   className="bg-slate-700 border-slate-600 text-white"
-                  min={credentials.start_date}
+                  min={credentials.start_date ?? undefined}
                   max={new Date().toISOString().split("T")[0]}
                 />
               </div>

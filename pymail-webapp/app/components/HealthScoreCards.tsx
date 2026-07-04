@@ -75,8 +75,12 @@ export function HealthScoreCards({
             </div>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground leading-snug font-medium">
-              Calculated from spam volume, open rates, and sender reputation.
+            <p
+              className="text-sm text-muted-foreground leading-snug font-medium"
+              title="Heuristic estimate. Open rate is inferred from the read/unread flag, so recent unread mail can lower the score — treat it as a ranking hint, not a verdict."
+            >
+              Heuristic estimate from spam volume, open rates, and sender
+              reputation.
             </p>
           </div>
         </CardContent>

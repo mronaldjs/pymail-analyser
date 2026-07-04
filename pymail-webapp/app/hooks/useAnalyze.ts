@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { IMAPCredentials, AnalysisResponse, ScanProgress } from "@/types/api";
 import { resolveApiErrorMessage } from "../resolveApiErrorMessage";
+import { popUpAlert } from "@/utils/alerts";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -27,6 +28,8 @@ export function useAnalyze() {
   const fetchStartRef = useRef<number | null>(null);
   const unsubStartRef = useRef<number | null>(null);
   const dnsStartRef = useRef<number | null>(null);
+  // Controller for the in-flight stream so reset()/disconnect can cancel it.
+  const abortRef = useRef<AbortController | null>(null);
 
   const computeEta = (
     startedAt: number | null,
@@ -58,7 +61,11 @@ export function useAnalyze() {
 
     // Running total accumulated from imap_fetch events (no upfront count).
     let liveTotal = 0;
-    let lastFetchedCount = 0;
+
+    // Cancel any previous in-flight run and start a fresh controller.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       // Single IMAP connection: jump straight to the NDJSON stream.
@@ -68,6 +75,7 @@ export function useAnalyze() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(credentials),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -101,7 +109,6 @@ export function useAnalyze() {
             if (event.type === "progress") {
               if (event.phase === "imap_fetch") {
                 const current = event.fetched || 0;
-                lastFetchedCount = current;
                 // Grow the live total to at least `current` — it never shrinks.
                 liveTotal = Math.max(liveTotal, current);
 
@@ -198,17 +205,23 @@ export function useAnalyze() {
         }
       }
     } catch (error: unknown) {
+      // A user-initiated abort (disconnect / new analysis) is not an error.
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       setIsLoading(false);
       const message = resolveApiErrorMessage(
         error,
         "Failed to connect to the server.",
       );
-      alert("Failed to connect: " + message);
+      popUpAlert("Failed to connect: " + message, "error");
       setScanProgress(IDLE_PROGRESS);
     }
   };
 
   const reset = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setData(null);
     setIsLoading(false);
     setScanProgress(IDLE_PROGRESS);
