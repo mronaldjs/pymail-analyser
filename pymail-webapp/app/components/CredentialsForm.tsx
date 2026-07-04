@@ -2,6 +2,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "lucide-react";
 import { IMAPCredentials } from "@/types/api";
+import { requiresAppPassword, getProviderKind } from "@/utils/emailProviders";
+
+const PROVIDER_LABEL: Record<string, string> = {
+  google: "Gmail / Google Workspace",
+  microsoft: "Outlook / Microsoft 365",
+  yahoo: "Yahoo Mail",
+  proton: "ProtonMail",
+  other: "This provider",
+};
 
 interface CredentialsFormProps {
   email: string;
@@ -28,42 +37,42 @@ export function CredentialsForm({
   onAnalyze,
   onHelpClick,
 }: CredentialsFormProps) {
+  const host = credentials.host || inferredHost;
+  const needsAppPassword = requiresAppPassword(host);
+  const providerLabel = PROVIDER_LABEL[getProviderKind(host)];
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">Almost there!</h1>
-        <p className="text-slate-400 text-sm">
+        <p className="eyebrow">Almost there</p>
+        <p className="text-sm text-muted-foreground">
           Provider detected:{" "}
-          <span className="text-blue-400 font-semibold">{providerName}</span>
+          <span className="font-semibold text-primary">{providerName}</span>
         </p>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-sm backdrop-blur-sm">
-        <p className="text-slate-300">
-          <span className="text-slate-400">Email:</span> {email}
+      <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
+        <p className="text-foreground">
+          <span className="text-muted-foreground">Email:</span> {email}
         </p>
-        <p className="text-slate-300 mt-2">
-          <span className="text-slate-400">IMAP Host:</span>{" "}
+        <p className="mt-2 text-foreground">
+          <span className="text-muted-foreground">IMAP Host:</span>{" "}
           {inferredHost || "(Custom)"}
         </p>
       </div>
 
       <div className="space-y-4">
         {!inferredHost && (
-          <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-            <label className="text-sm font-medium text-white">
+          <div className="space-y-2 duration-300 animate-in fade-in slide-in-from-top-2">
+            <label className="text-sm font-medium text-foreground">
               Custom IMAP Host
             </label>
             <Input
               value={credentials.host}
               onChange={(e) =>
-                setCredentials({
-                  ...credentials,
-                  host: e.target.value,
-                })
+                setCredentials({ ...credentials, host: e.target.value })
               }
               placeholder="imap.yourserver.com"
-              className="bg-white/5 border-white/10 text-white placeholder-white/40 focus:border-primary focus:ring-primary/50 transition-all"
               required
             />
           </div>
@@ -71,13 +80,13 @@ export function CredentialsForm({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-white">
+            <label className="text-sm font-medium text-foreground">
               App Password or Password
             </label>
             <button
               type="button"
               onClick={onHelpClick}
-              className="text-xs text-primary hover:text-accent hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+              className="flex cursor-pointer items-center gap-1 text-xs text-primary transition-colors hover:underline"
             >
               <HelpCircle className="h-3 w-3" />
               How to generate?
@@ -87,23 +96,36 @@ export function CredentialsForm({
             type="password"
             value={credentials.password}
             onChange={(e) =>
-              setCredentials({
-                ...credentials,
-                password: e.target.value,
-              })
+              setCredentials({ ...credentials, password: e.target.value })
             }
             placeholder="••••••••"
             required
-            className="bg-white/5 border-white/10 text-white placeholder-white/40 focus:border-primary focus:ring-primary/50 transition-all"
             autoFocus
           />
-          <p className="text-xs text-muted-foreground">
-            Use an app password if you have 2FA enabled
-          </p>
+          {needsAppPassword ? (
+            <p
+              className="rounded-md border px-2.5 py-1.5 text-xs leading-relaxed"
+              style={{
+                color: "#e5c07b",
+                borderColor: "rgba(229, 192, 123, 0.3)",
+                backgroundColor: "rgba(229, 192, 123, 0.08)",
+              }}
+            >
+              <strong>{providerLabel}</strong> requires an{" "}
+              <strong>App Password</strong> — your normal password won&apos;t
+              work. Turn on 2-Step Verification, then generate one via
+              &ldquo;How to generate?&rdquo; above.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Use an app password if your provider requires one (recommended
+              with 2FA).
+            </p>
+          )}
         </div>
 
         <div className="space-y-3">
-          <label className="text-sm font-medium text-white">
+          <label className="text-sm font-medium text-foreground">
             Analysis Period
           </label>
 
@@ -121,7 +143,7 @@ export function CredentialsForm({
                   days_limit: 30,
                 });
               }}
-              className="flex-1 cursor-pointer"
+              className="flex-1"
             >
               Preset
             </Button>
@@ -131,12 +153,9 @@ export function CredentialsForm({
               variant={dateRangeMode === "custom" ? "default" : "outline"}
               onClick={() => {
                 setDateRangeMode("custom");
-                setCredentials({
-                  ...credentials,
-                  days_limit: undefined,
-                });
+                setCredentials({ ...credentials, days_limit: undefined });
               }}
-              className="flex-1 cursor-pointer"
+              className="flex-1"
             >
               Custom
             </Button>
@@ -153,7 +172,7 @@ export function CredentialsForm({
                   end_date: undefined,
                 })
               }
-              className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+              className="h-9 w-full cursor-pointer rounded-md border border-input bg-transparent px-3 text-sm transition-colors focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <option value={7}>Last 7 days</option>
               <option value={30}>Last 30 days</option>
@@ -164,7 +183,9 @@ export function CredentialsForm({
           ) : (
             <div className="space-y-2">
               <div className="space-y-1">
-                <label className="text-xs text-slate-400">Start Date</label>
+                <label className="text-xs text-muted-foreground">
+                  Start Date
+                </label>
                 <Input
                   type="date"
                   value={credentials.start_date || ""}
@@ -175,7 +196,6 @@ export function CredentialsForm({
                       days_limit: undefined,
                     })
                   }
-                  className="bg-slate-700 border-slate-600 text-white"
                   max={
                     credentials.end_date ||
                     new Date().toISOString().split("T")[0]
@@ -183,7 +203,9 @@ export function CredentialsForm({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-slate-400">End Date</label>
+                <label className="text-xs text-muted-foreground">
+                  End Date
+                </label>
                 <Input
                   type="date"
                   value={credentials.end_date || ""}
@@ -194,7 +216,6 @@ export function CredentialsForm({
                       days_limit: undefined,
                     })
                   }
-                  className="bg-slate-700 border-slate-600 text-white"
                   min={credentials.start_date ?? undefined}
                   max={new Date().toISOString().split("T")[0]}
                 />
@@ -205,16 +226,12 @@ export function CredentialsForm({
       </div>
 
       <div className="flex gap-3">
-        <Button
-          onClick={onBack}
-          variant="outline"
-          className="flex-1 border-slate-600 text-white hover:bg-slate-700 cursor-pointer"
-        >
+        <Button onClick={onBack} variant="outline" className="flex-1">
           Back
         </Button>
         <Button
           onClick={onAnalyze}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold cursor-pointer"
+          className="flex-1"
           disabled={
             !credentials.password ||
             (dateRangeMode === "custom" &&

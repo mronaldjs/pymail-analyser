@@ -14,7 +14,7 @@ describe("resolveApiErrorMessage", () => {
 
   it("maps error_code IMAP_OPERATION_FAILED to a user-friendly message", () => {
     const error = { response: { data: { error_code: "IMAP_OPERATION_FAILED", detail: "Failed to process IMAP operation." } } };
-    expect(resolveApiErrorMessage(error, "")).toMatch(/fail/i);
+    expect(resolveApiErrorMessage(error, "")).toMatch(/operation/i);
   });
 
   it("returns detail if error_code is not recognized", () => {

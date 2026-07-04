@@ -1,6 +1,11 @@
 import { useRef, useState } from "react";
-import { IMAPCredentials, AnalysisResponse, ScanProgress } from "@/types/api";
-import { resolveApiErrorMessage } from "../resolveApiErrorMessage";
+import {
+  IMAPCredentials,
+  AnalysisResponse,
+  ScanProgress,
+  ApiErrorResponse,
+} from "@/types/api";
+import { messageForErrorCode } from "../resolveApiErrorMessage";
 import { popUpAlert } from "@/utils/alerts";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -79,7 +84,19 @@ export function useAnalyze() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        let payload: ApiErrorResponse | undefined;
+        try {
+          payload = (await response.json()) as ApiErrorResponse;
+        } catch {
+          payload = undefined;
+        }
+        throw new Error(
+          messageForErrorCode(
+            payload?.error_code,
+            payload?.detail,
+            `Request failed (HTTP ${response.status}).`,
+          ),
+        );
       }
 
       const reader = response.body?.getReader();
@@ -197,7 +214,13 @@ export function useAnalyze() {
               setIsLoading(false);
               setScanProgress({ ...IDLE_PROGRESS, percentage: 100 });
             } else if (event.type === "error") {
-              throw new Error(event.payload?.detail || "Unknown error");
+              throw new Error(
+                messageForErrorCode(
+                  event.payload?.error_code,
+                  event.payload?.detail,
+                  "Analysis failed.",
+                ),
+              );
             }
           } catch (parseError) {
             console.error("Error parsing event:", parseError, line);
@@ -210,11 +233,11 @@ export function useAnalyze() {
         return;
       }
       setIsLoading(false);
-      const message = resolveApiErrorMessage(
-        error,
-        "Failed to connect to the server.",
-      );
-      popUpAlert("Failed to connect: " + message, "error");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to reach the server. Is the backend running?";
+      popUpAlert(message, "error");
       setScanProgress(IDLE_PROGRESS);
     }
   };
