@@ -22,14 +22,6 @@ export interface GroupConfig {
   sortWithinGroups: SortConfig;
 }
 
-// Map spam_risk to numerical values for sorting
-const RISK_VALUE: Record<string, number> = {
-  high: 3,
-  medium: 2,
-  low: 1,
-  unknown: 0,
-};
-
 // Extract domain from email
 function extractDomain(email: string): string {
   const match = email.match(/@(.+)$/);

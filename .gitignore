@@ -28,3 +28,8 @@ out/
 
 # Cache
 .cache/
+
+# Root-level markdown (keep only README.md and CLAUDE.md)
+/*.md
+!/README.md
+!/CLAUDE.md

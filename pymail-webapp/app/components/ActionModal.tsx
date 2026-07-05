@@ -7,7 +7,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Loader2, Trash2, Archive, CheckCircle2, MailX } from "lucide-react";
 import { SenderStats } from "@/types/api";
 
@@ -16,7 +15,6 @@ interface ActionModalProps {
   onOpenChange: (open: boolean) => void;
   actionType: "delete" | "archive";
   actionTargets: SenderStats[];
-  actionProgress: number;
   isProcessing: boolean;
   actionStatus: "idle" | "processing" | "success" | "error";
   onConfirm: () => void;
@@ -27,7 +25,6 @@ export function ActionModal({
   onOpenChange,
   actionType,
   actionTargets,
-  actionProgress,
   isProcessing,
   actionStatus,
   onConfirm,
@@ -93,10 +90,13 @@ export function ActionModal({
               />
             </div>
             <div className="space-y-2">
-              <Progress value={actionProgress} className="w-full" />
+              {/* Indeterminate: a single delete/archive request has no real
+                  progress signal, so we show activity rather than a fake %. */}
+              <div className="h-4 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full w-full rounded-full bg-linear-to-r from-primary to-accent animate-pulse" />
+              </div>
               <p className="text-xs text-center text-muted-foreground">
-                {actionType === "delete" ? "Deleting" : "Archiving"} emails:{" "}
-                {Math.round(actionProgress)}%
+                {actionType === "delete" ? "Deleting" : "Archiving"} emails…
               </p>
             </div>
           </div>

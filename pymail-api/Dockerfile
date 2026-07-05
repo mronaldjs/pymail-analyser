@@ -1,24 +1,43 @@
-FROM python:3.10-slim
+# syntax=docker/dockerfile:1
 
-# Evita que o Python gere arquivos .pyc e permite logs em tempo real
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV PYTHONPATH=/app
+# --- builder: install dependencies into an isolated virtualenv ---
+# All runtime deps ship manylinux wheels (pydantic-core, etc.), so no compiler
+# toolchain is needed — the old build-essential/pandas/numpy step is gone.
+FROM python:3.10-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Instalando dependências de sistema necessárias para pandas/numpy
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv /opt/venv
 
-# Copia apenas o requirements primeiro para aproveitar o cache do Docker
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Copia o código para /app
+# --- runtime: slim image with just the venv and the app code ---
+FROM python:3.10-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Run as an unprivileged user.
+RUN useradd --create-home --uid 1000 appuser
+
+COPY --from=builder /opt/venv /opt/venv
 COPY . /app/
+RUN chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Single worker on purpose: the on-disk reputation cache is process-local
+# (see services/domain_reputation.py). Scaling out needs a shared cache first.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

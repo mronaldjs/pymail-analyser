@@ -1,28 +1,35 @@
+# Production stack. Builds the multi-stage images and runs them without source
+# mounts or hot-reload. For local development use the dev override, which Compose
+# merges automatically:
+#
+#   docker compose up                 # dev (this file + docker-compose.override.yml)
+#   docker compose -f docker-compose.yml up   # production-only
 services:
   backend:
     build: ./pymail-api
     container_name: pymail-backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./pymail-api:/app
-    environment:
-      - PYTHONPATH=/
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: always
 
   frontend:
-    build: ./pymail-webapp
+    build:
+      context: ./pymail-webapp
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
     container_name: pymail-frontend
     ports:
       - "3000:3000"
-    volumes:
-      - ./pymail-webapp:/app
-      - /app/node_modules
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: always

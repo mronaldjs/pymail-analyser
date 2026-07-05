@@ -66,6 +66,10 @@ def _load_cache() -> Dict[str, Any]:
 
 
 def _save_cache(data: Dict[str, Any]) -> None:
+    # Atomic write: serialize to a temp file then os.replace() so a crash mid-write
+    # never leaves a corrupt/partial cache. NOTE: this is process-local — running
+    # multiple uvicorn workers/replicas would race on this file; scaling out needs
+    # a shared cache (sqlite/redis) first. The prod image runs a single worker.
     path = _cache_file_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -359,7 +363,7 @@ def describe_domain_signals_pt(sig: Dict[str, Any]) -> str:
     dm = str(sig.get("dmarc") or "?")
     parts = [f"MX:{mx}", f"SPF:{spf}", f"DMARC:{dm}"]
     if sig.get("error"):
-        parts.append(f"erro DNS")
+        parts.append("erro DNS")
     return " · ".join(parts)
 
 
@@ -369,6 +373,6 @@ def describe_domain_signals_en(sig: Dict[str, Any]) -> str:
     dm = str(sig.get("dmarc") or "?")
     parts = [f"MX:{mx}", f"SPF:{spf}", f"DMARC:{dm}"]
     if sig.get("error"):
-        parts.append(f"DNS error")
+        parts.append("DNS error")
     return " · ".join(parts)
 

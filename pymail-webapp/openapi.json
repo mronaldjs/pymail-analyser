@@ -1,0 +1,663 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Email Analysis API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/ready": {
+      "get": {
+        "summary": "Ready",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Healthcheck",
+        "operationId": "healthcheck_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/count": {
+      "post": {
+        "summary": "Count Emails",
+        "description": "Retorna a contagem total de emails no período especificado sem processá-los.",
+        "operationId": "count_emails_count_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IMAPCredentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze": {
+      "post": {
+        "summary": "Analyze Inbox",
+        "operationId": "analyze_inbox_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IMAPCredentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze/stream": {
+      "post": {
+        "summary": "Analyze Stream",
+        "description": "Stream NDJSON progress events then the final AnalysisResponse.\n\nEach line is a JSON object terminated with a newline character:\n  {\"type\":\"progress\",\"phase\":\"imap_fetch\",\"fetched\":N}\n  {\"type\":\"progress\",\"phase\":\"dns_lookup\",\"checked\":K,\"total\":T}\n  {\"type\":\"done\",\"result\":{...AnalysisResponse...}}\n  {\"type\":\"error\",\"status_code\":N,\"payload\":{...}}",
+        "operationId": "analyze_stream_analyze_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IMAPCredentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delete": {
+      "post": {
+        "summary": "Delete Emails",
+        "operationId": "delete_emails_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/archive": {
+      "post": {
+        "summary": "Archive Emails",
+        "operationId": "archive_emails_archive_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisResponse": {
+        "properties": {
+          "total_emails_scanned": {
+            "type": "integer",
+            "title": "Total Emails Scanned"
+          },
+          "ignored_senders": {
+            "items": {
+              "$ref": "#/components/schemas/SenderStats"
+            },
+            "type": "array",
+            "title": "Ignored Senders"
+          },
+          "health_score": {
+            "type": "integer",
+            "title": "Health Score"
+          },
+          "source_grouping_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Grouping Mode",
+            "description": "provider | tenant — granularity used to compute source_key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_emails_scanned",
+          "ignored_senders",
+          "health_score"
+        ],
+        "title": "AnalysisResponse"
+      },
+      "DeleteRequest": {
+        "properties": {
+          "credentials": {
+            "$ref": "#/components/schemas/IMAPCredentials"
+          },
+          "sender_emails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sender Emails"
+          }
+        },
+        "type": "object",
+        "required": [
+          "credentials",
+          "sender_emails"
+        ],
+        "title": "DeleteRequest"
+      },
+      "DomainReputation": {
+        "properties": {
+          "primary_domain": {
+            "type": "string",
+            "title": "Primary Domain",
+            "default": ""
+          },
+          "checked_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Checked Domains"
+          },
+          "mx": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mx"
+          },
+          "spf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spf"
+          },
+          "dmarc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dmarc"
+          },
+          "dns_trust": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": -1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Trust",
+            "description": "Conservative aggregate (minimum among domain groups): -1 suspicious … +1 strong"
+          },
+          "summary_pt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Pt"
+          },
+          "summary_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary En"
+          },
+          "virustotal_malicious": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Virustotal Malicious"
+          },
+          "virustotal_suspicious": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Virustotal Suspicious"
+          }
+        },
+        "type": "object",
+        "title": "DomainReputation",
+        "description": "Signals consulted for the sender's domain(s) (Public DNS; Optional VT)."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "API health status"
+          },
+          "source_grouping_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Grouping Mode",
+            "description": "provider | tenant — active source grouping mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "IMAPCredentials": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host",
+            "description": "IMAP Server Host (e.g., imap.gmail.com)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email",
+            "description": "User email address"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password",
+            "description": "App Password or User Password",
+            "writeOnly": true
+          },
+          "days_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Limit",
+            "description": "Number of days to look back for analysis"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date",
+            "description": "Start date for custom range (YYYY-MM-DD)"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date",
+            "description": "End date for custom range (YYYY-MM-DD)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "host",
+          "email",
+          "password"
+        ],
+        "title": "IMAPCredentials"
+      },
+      "ReadyResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "API readiness status"
+          },
+          "source_grouping_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Grouping Mode",
+            "description": "provider | tenant — active source grouping mode"
+          },
+          "virustotal_enabled": {
+            "type": "boolean",
+            "title": "Virustotal Enabled",
+            "description": "True when VIRUSTOTAL_API_KEY is set and domain reputation will include VT signals",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ReadyResponse"
+      },
+      "SenderStats": {
+        "properties": {
+          "sender_name": {
+            "type": "string",
+            "title": "Sender Name"
+          },
+          "sender_email": {
+            "type": "string",
+            "title": "Sender Email"
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
+          "sender_emails": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sender Emails"
+          },
+          "email_count": {
+            "type": "integer",
+            "title": "Email Count"
+          },
+          "open_rate": {
+            "type": "number",
+            "title": "Open Rate"
+          },
+          "spam_score": {
+            "type": "number",
+            "title": "Spam Score"
+          },
+          "spam_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spam Risk",
+            "description": "high | medium | low — estimated chance of being spam vs official sender"
+          },
+          "domain_reputation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DomainReputation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unsubscribe_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsubscribe Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sender_name",
+          "sender_email",
+          "email_count",
+          "open_rate",
+          "spam_score"
+        ],
+        "title": "SenderStats"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

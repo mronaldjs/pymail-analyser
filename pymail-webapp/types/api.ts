@@ -1,61 +1,32 @@
-export interface DomainReputation {
-  primary_domain?: string;
-  checked_domains?: string[];
-  mx?: boolean;
-  spf?: string;
-  dmarc?: string;
-  dns_trust?: number;
-  summary_pt?: string;
-  summary_en?: string;
-  virustotal_malicious?: number;
-  virustotal_suspicious?: number;
-}
+import type { components } from "./api.generated";
 
-export interface IMAPCredentials {
-  host: string;
-  email: string;
-  password: string;
-  days_limit?: number;
-  start_date?: string; // ISO format YYYY-MM-DD
-  end_date?: string; // ISO format YYYY-MM-DD
-}
+/**
+ * API types re-exported from the backend OpenAPI schema (single source of truth).
+ *
+ * `types/api.generated.ts` is produced from `openapi.json` by `npm run gen:types`
+ * (see the Makefile `openapi`/`gen-types` targets). Do not hand-edit the API
+ * shapes below — regenerate instead. Only the frontend-only types further down
+ * are maintained by hand.
+ */
+export type DomainReputation = components["schemas"]["DomainReputation"];
+export type IMAPCredentials = components["schemas"]["IMAPCredentials"];
+export type SenderStats = components["schemas"]["SenderStats"];
+export type AnalysisResponse = components["schemas"]["AnalysisResponse"];
+export type DeleteRequest = components["schemas"]["DeleteRequest"];
+export type ReadyResponse = components["schemas"]["ReadyResponse"];
 
-export interface SenderStats {
-  sender_name: string;
-  sender_email: string;
-  source_key?: string;
-  sender_emails?: string[];
-  email_count: number;
-  open_rate: number;
-  spam_score: number;
-  /** high | medium | low — estimativa de risco de spam vs remetente oficial */
-  spam_risk?: string;
-  domain_reputation?: DomainReputation;
-  unsubscribe_link?: string;
-}
-
-export interface AnalysisResponse {
-  total_emails_scanned: number;
-  ignored_senders: SenderStats[];
-  health_score: number;
-  source_grouping_mode?: "provider" | "tenant";
-}
-
-export interface DeleteRequest {
-  credentials: IMAPCredentials;
-  sender_emails: string[];
-}
-
+/**
+ * Structured error payload returned by the IMAP endpoints. Not part of the
+ * OpenAPI schema (the handlers return it via JSONResponse), so it stays
+ * hand-written here — kept in sync with `_error_payload` in pymail-api/main.py.
+ */
 export interface ApiErrorResponse {
   detail?: string;
   error_code?: string;
+  request_id?: string;
 }
 
-export interface ReadyResponse {
-  status: string;
-  source_grouping_mode?: "provider" | "tenant";
-  virustotal_enabled: boolean;
-}
+// --- Frontend-only types (not part of the API schema) ---
 
 export type ScanProgressEvent =
   | { type: "progress"; phase: "imap_fetch"; fetched: number }

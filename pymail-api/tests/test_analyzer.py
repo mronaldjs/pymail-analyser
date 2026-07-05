@@ -307,24 +307,114 @@ class TestEmailAnalyzer(unittest.TestCase):
         mock_mailbox.move.assert_called_with(['1'], 'Archive')
         mock_mailbox.delete.assert_not_called()
 
-    def test_compute_rank_and_risk_ufg_official(self):
-        # High spam score but official domain should yield low risk
-        rank_ufg, risk_ufg = _compute_rank_and_risk(
+    def test_compute_rank_and_risk_official_gets_rank_reduction(self):
+        # High spam score but an official domain (+ high unsub) yields low risk
+        # and a strong rank reduction.
+        rank_off, risk_off = _compute_rank_and_risk(
             spam_score=50.0,
             email_count=5,
-            unsub_ratio=0.5, # High unsub is also a good signal
-            domain="discente.ufg.br",
+            unsub_ratio=0.5,  # high unsub is also a good signal
+            domain="gmail.com",
         )
-        rank_ufg_main, risk_ufg_main = _compute_rank_and_risk(
-            spam_score=50.0,
-            email_count=5,
-            unsub_ratio=0.5,
-            domain="ufg.br",
+        self.assertEqual(risk_off, "low")
+        # Official domains get a significant rank reduction (0.18x).
+        self.assertLess(rank_off, 10.0)
+
+    @patch("services.analyzer.lookup_domain_signals")
+    @patch("services.analyzer.MailBox")
+    def test_analyze_golden_snapshot(self, mock_mailbox_class, mock_dns):
+        """Golden snapshot locking the exact scoring math and response shape so
+        the analyze() refactor stays behavior-preserving."""
+        mock_dns.return_value = {
+            "mx": True, "spf": "strict", "dmarc": "reject", "error": None,
+        }
+
+        class MockMsg:
+            def __init__(self, uid, email, name, seen, unsub):
+                self.uid = uid
+                self.from_values = MagicMock()
+                self.from_values.email = email
+                self.from_values.name = name
+                self.flags = ["SEEN"] if seen else []
+                self.headers = (
+                    {"list-unsubscribe": ["<https://u.example/x>"]} if unsub else {}
+                )
+
+        # promo: 3 msgs, 0 read → spam_score = 3 * (1 - 0) * 10 = 30
+        # news:  2 msgs, 2 read → spam_score = 2 * (1 - 1) * 10 = 0
+        mock_messages = [
+            MockMsg("1", "a@promo.com", "Promo", False, True),
+            MockMsg("2", "a@promo.com", "Promo", False, True),
+            MockMsg("3", "a@promo.com", "Promo", False, True),
+            MockMsg("4", "b@news.com", "News", True, False),
+            MockMsg("5", "b@news.com", "News", True, False),
+        ]
+        mock_mailbox = mock_mailbox_class.return_value
+        mock_mailbox.login.return_value.__enter__.return_value = mock_mailbox
+        mock_mailbox.fetch.return_value = mock_messages
+
+        result = EmailAnalyzer(self.mock_credentials).analyze()
+
+        self.assertEqual(result.total_emails_scanned, 5)
+        # total_spam = 30 + 0 = 30 → health = 100 - int(30 / 5) = 94
+        self.assertEqual(result.health_score, 94)
+
+        senders = {s.source_key: s for s in result.ignored_senders}
+        self.assertEqual(senders["promo"].email_count, 3)
+        self.assertEqual(senders["promo"].open_rate, 0.0)
+        self.assertEqual(senders["promo"].spam_score, 30.0)
+        self.assertEqual(senders["news"].email_count, 2)
+        self.assertEqual(senders["news"].open_rate, 100.0)
+        self.assertEqual(senders["news"].spam_score, 0.0)
+
+    @patch("services.analyzer.lookup_domain_signals")
+    @patch("services.analyzer.MailBox")
+    def test_analyze_body_scan_fallback_finds_unsub(self, mock_mailbox_class, mock_dns):
+        """A sender without a List-Unsubscribe header has its most recent message
+        body scanned; an unsubscribe link found there is attached to the group."""
+        mock_dns.return_value = {
+            "mx": True, "spf": "strict", "dmarc": "reject", "error": None,
+        }
+
+        class HeaderMsg:
+            def __init__(self, uid, email, name):
+                self.uid = uid
+                self.from_values = MagicMock()
+                self.from_values.email = email
+                self.from_values.name = name
+                self.flags = []
+                self.headers = {}  # no List-Unsubscribe → triggers body scan
+
+        class BodyMsg:
+            def __init__(self, uid, html, text):
+                self.uid = uid
+                self.html = html
+                self.text = text
+
+        header_pass = [
+            HeaderMsg("10", "news@promo.com", "Promo"),
+            HeaderMsg("11", "news@promo.com", "Promo"),
+        ]
+        body_pass = [
+            BodyMsg(
+                "11",
+                '<a href="https://promo.com/unsub">Unsubscribe here</a>',
+                None,
+            ),
+        ]
+        mock_mailbox = mock_mailbox_class.return_value
+        mock_mailbox.login.return_value.__enter__.return_value = mock_mailbox
+        # First fetch = header pass, second fetch = body scan.
+        mock_mailbox.fetch.side_effect = [header_pass, body_pass]
+
+        result = EmailAnalyzer(self.mock_credentials).analyze()
+
+        senders = {s.source_key: s for s in result.ignored_senders}
+        self.assertIn("promo", senders)
+        self.assertEqual(
+            senders["promo"].unsubscribe_link, "https://promo.com/unsub"
         )
-        self.assertEqual(risk_ufg, "low")
-        self.assertEqual(risk_ufg_main, "low")
-        # Official domains get a significant rank reduction (0.18x)
-        self.assertLess(rank_ufg, 10.0) 
+
 
 if __name__ == "__main__":
     unittest.main()

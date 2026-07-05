@@ -38,7 +38,6 @@ interface DashboardProps {
   setActionModalOpen: (open: boolean) => void;
   actionType: "delete" | "archive";
   actionTargets: SenderStats[];
-  actionProgress: number;
   isProcessing: boolean;
   actionStatus: "idle" | "processing" | "success" | "error";
   onConfirmAction: (sender: SenderStats, type: "delete" | "archive") => void;
@@ -66,7 +65,6 @@ export function Dashboard({
   setActionModalOpen,
   actionType,
   actionTargets,
-  actionProgress,
   isProcessing,
   actionStatus,
   onConfirmAction,
@@ -188,7 +186,6 @@ export function Dashboard({
           onOpenChange={setActionModalOpen}
           actionType={actionType}
           actionTargets={actionTargets}
-          actionProgress={actionProgress}
           isProcessing={isProcessing}
           actionStatus={actionStatus}
           onConfirm={handleExecuteAction}

@@ -195,6 +195,10 @@ pymail-analyser/
 
 PyMail Analyser **does not store** your passwords. Credentials are only sent during the analysis session and deletion/archiving operations. We always recommend using "App Passwords" instead of your primary password, especially for Google-based accounts (like Gmail or Institutional emails).
 
+- **Always serve the API over HTTPS for any non-local deployment.** Credentials travel in the request body; the default `docker-compose` setup is plain HTTP and is intended for local use only. Put the backend behind a TLS-terminating reverse proxy before exposing it.
+- The backend validates the IMAP `host` and rejects targets that resolve to private/loopback/link-local addresses (SSRF protection), and applies a per-IP rate limit to the IMAP endpoints.
+- The IMAP password is handled as a Pydantic `SecretStr`, so it is never included in logs or error tracebacks.
+
 ## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests. Please ensure that:

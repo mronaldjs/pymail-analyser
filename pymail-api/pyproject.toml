@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Focused baseline that catches real defects without churny stylistic rewrites:
+# E: pycodestyle, F: pyflakes (unused/undefined names), B: flake8-bugbear.
+# (Type-hint modernization via UP and import sorting via I can be enabled later.)
+select = ["E", "F", "B"]
+# Line length is enforced by the formatter, not the linter — don't fail CI on it.
+ignore = ["E501"]

@@ -21,8 +21,11 @@ export function ThemeSelector() {
   const themes = getThemeList();
 
   useEffect(() => {
-    // Load saved theme on mount
+    // Load saved theme on mount. This is a client-only localStorage read, so it
+    // must run in an effect (localStorage is unavailable during SSR) — the
+    // one-time state sync it requires is expected here.
     const savedTheme = loadThemePreference();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentTheme(savedTheme);
     applyTheme(savedTheme);
   }, []);

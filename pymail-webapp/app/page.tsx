@@ -9,6 +9,10 @@ import { LoadingScreen } from "./components/LoadingScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import { Dashboard } from "./components/Dashboard";
 import { popUpAlert } from "@/utils/alerts";
+import {
+  normalizeUnsubscribeLink,
+  isValidHttpUrl,
+} from "@/utils/unsubscribeLink";
 
 export default function Home() {
   const [credentials, setCredentials] = useState<IMAPCredentials>({
@@ -27,7 +31,6 @@ export default function Home() {
     setActionModalOpen,
     actionType,
     actionTargets,
-    actionProgress,
     isProcessing,
     actionStatus,
     confirmAction,
@@ -54,38 +57,6 @@ export default function Home() {
   const handleDisconnect = () => {
     reset();
     clearSelection();
-  };
-
-  const isValidHttpUrl = (link: string) => {
-    try {
-      const url = new URL(link);
-      return url.protocol === "http:" || url.protocol === "https:";
-    } catch {
-      return false;
-    }
-  };
-
-  const normalizeUnsubscribeLink = (link: string) => {
-    if (!link) return "";
-
-    const candidates = link
-      .split(",")
-      .map((item) => item.trim().replace(/^<|>$/g, ""))
-      .filter(Boolean);
-
-    const mailtoLink = candidates.find((item) =>
-      item.toLowerCase().startsWith("mailto:"),
-    );
-    if (mailtoLink) {
-      return mailtoLink;
-    }
-
-    const httpLink = candidates.find((item) => isValidHttpUrl(item));
-    if (httpLink) {
-      return httpLink;
-    }
-
-    return candidates[0] ?? "";
   };
 
   const handleUnsubscribe = (rawLink: string) => {
@@ -165,7 +136,6 @@ export default function Home() {
         setActionModalOpen={setActionModalOpen}
         actionType={actionType}
         actionTargets={actionTargets}
-        actionProgress={actionProgress}
         isProcessing={isProcessing}
         actionStatus={actionStatus}
         onConfirmAction={confirmAction}

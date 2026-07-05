@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { IMAPCredentials, SenderStats, DeleteRequest } from "@/types/api";
 import { resolveApiErrorMessage } from "../resolveApiErrorMessage";
 import { getSenderKey } from "@/utils/senderSelection";
+import { popUpAlert } from "@/utils/alerts";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -11,7 +12,6 @@ export function useAction() {
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [actionType, setActionType] = useState<"delete" | "archive">("delete");
   const [actionTargets, setActionTargets] = useState<SenderStats[]>([]);
-  const [actionProgress, setActionProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionStatus, setActionStatus] = useState<
     "idle" | "processing" | "success" | "error"
@@ -48,19 +48,18 @@ export function useAction() {
         shouldRemoveFromList,
       };
     },
-    onSuccess: ({ type, targetKeys, notArchived }) => {
-      setActionProgress(100);
+    onSuccess: ({ type, notArchived }) => {
       setActionStatus("success");
       if (type === "archive" && notArchived > 0) {
-        alert(
+        popUpAlert(
           "Some senders were not archived because the account does not expose a compatible archive folder.",
+          "info",
         );
       }
       setTimeout(() => {
         setActionModalOpen(false);
         setActionTargets([]);
         setIsProcessing(false);
-        setActionProgress(0);
         setActionStatus("idle");
       }, 1500);
     },
@@ -68,9 +67,9 @@ export function useAction() {
       setActionStatus("error");
       const fallback = `Failed to ${actionType === "delete" ? "delete" : "archive"} the selected emails.`;
       const message = resolveApiErrorMessage(error, fallback);
-      alert(
-        `Failed to ${actionType === "delete" ? "delete" : "archive"}: ` +
-          message,
+      popUpAlert(
+        `Failed to ${actionType === "delete" ? "delete" : "archive"}: ` + message,
+        "error",
       );
       setIsProcessing(false);
       setTimeout(() => {
@@ -79,26 +78,10 @@ export function useAction() {
     },
   });
 
-  // Simulate progress when processing
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isProcessing && actionProgress < 90) {
-      interval = setInterval(() => {
-        setActionProgress((prev) => {
-          if (prev >= 90) return prev;
-          const diff = 90 - prev;
-          return prev + Math.max(1, diff * 0.1);
-        });
-      }, 500);
-    }
-    return () => clearInterval(interval);
-  }, [isProcessing, actionProgress]);
-
   const confirmAction = (sender: SenderStats, type: "delete" | "archive") => {
     setActionTargets([sender]);
     setActionType(type);
     setActionModalOpen(true);
-    setActionProgress(0);
   };
 
   const confirmBulkAction = (
@@ -111,7 +94,6 @@ export function useAction() {
     setActionTargets(targets);
     setActionType(type);
     setActionModalOpen(true);
-    setActionProgress(0);
   };
 
   const executeAction = (
@@ -135,7 +117,6 @@ export function useAction() {
     setActionModalOpen,
     actionType,
     actionTargets,
-    actionProgress,
     isProcessing,
     actionStatus,
     confirmAction,

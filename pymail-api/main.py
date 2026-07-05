@@ -1,15 +1,22 @@
 import asyncio
 import json
 import logging
+import logging.config
 import os
 import uuid
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, AsyncIterator
+from contextvars import ContextVar
+from datetime import date, timedelta
+from typing import AsyncGenerator, AsyncIterator, Optional
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from imap_tools import A, MailBox
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from models.schemas import (
     AnalysisResponse,
     DeleteRequest,
@@ -18,8 +25,55 @@ from models.schemas import (
     ReadyResponse,
 )
 from services.analyzer import _SOURCE_GROUPING_MODE, EmailAnalyzer
+from services.net_guard import HostNotAllowedError, validate_imap_host
 
 logger = logging.getLogger(__name__)
+
+# Rate limiter keyed by client IP; applied to the IMAP-proxy endpoints below.
+limiter = Limiter(key_func=get_remote_address)
+
+# Current request id, set by RequestIDMiddleware and injected into every log line
+# so structured logs can be correlated per request (see _configure_logging).
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
+
+
+class RequestIdLogFilter(logging.Filter):
+    """Attach the active request_id (from the contextvar) to each log record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id_ctx.get()
+        return True
+
+
+def _configure_logging() -> None:
+    """Configure root logging with a request-id-aware formatter.
+
+    Idempotent; called on app startup. Level is controlled by LOG_LEVEL (INFO).
+    """
+    level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "filters": {"request_id": {"()": RequestIdLogFilter}},
+            "formatters": {
+                "default": {
+                    "format": (
+                        "%(asctime)s %(levelname)s [%(request_id)s] "
+                        "%(name)s: %(message)s"
+                    )
+                }
+            },
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "default",
+                    "filters": ["request_id"],
+                }
+            },
+            "root": {"level": level, "handlers": ["console"]},
+        }
+    )
 
 
 # CORS Setup - use environment variable or default to localhost
@@ -30,12 +84,15 @@ allowed_origins = os.getenv(
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    _configure_logging()
     logger.info("Source grouping mode: %s", _SOURCE_GROUPING_MODE)
     logger.info("Allowed CORS origins: %s", ",".join(allowed_origins))
     yield
 
 
 app = FastAPI(title="Email Analysis API", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # Middleware para request_id
@@ -55,6 +112,12 @@ class RequestIDMiddleware:
             if not req_id:
                 req_id = str(uuid.uuid4())
             scope["request_id"] = req_id
+            token = request_id_ctx.set(req_id)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                request_id_ctx.reset(token)
+            return
         await self.app(scope, receive, send)
 
 
@@ -137,12 +200,30 @@ def _error_payload(exc: Exception, request: Request = None) -> tuple[int, dict]:
     return 400, payload
 
 
+def _reject_disallowed_host(host: str, request: Request) -> Optional[JSONResponse]:
+    """Return a 400 JSONResponse if *host* is not a public IMAP host, else None.
+
+    Guards the IMAP-proxy endpoints against SSRF (see services/net_guard.py).
+    """
+    try:
+        validate_imap_host(host)
+        return None
+    except HostNotAllowedError:
+        request_id = request.scope.get("request_id")
+        payload = {
+            "detail": "IMAP host is not allowed. Use a public IMAP server hostname.",
+            "error_code": "IMAP_HOST_NOT_ALLOWED",
+        }
+        if request_id:
+            payload["request_id"] = request_id
+        return JSONResponse(status_code=400, content=payload)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "x-request-id"],
 )
 
 
@@ -151,17 +232,14 @@ async def healthcheck() -> HealthResponse:
     return HealthResponse(status="ok", source_grouping_mode=_SOURCE_GROUPING_MODE)
 
 
-from fastapi import Request as FastAPIRequest
-
-
 @app.post("/count")
-async def count_emails(credentials: IMAPCredentials, request: FastAPIRequest):
+@limiter.limit("5/minute")
+def count_emails(credentials: IMAPCredentials, request: Request):
     """Retorna a contagem total de emails no período especificado sem processá-los."""
+    guard = _reject_disallowed_host(credentials.host, request)
+    if guard is not None:
+        return guard
     try:
-        from datetime import date, timedelta
-
-        from imap_tools import A, MailBox
-
         # Build IMAP date criteria (same logic as analyze)
         if credentials.start_date and credentials.end_date:
             criteria = A(date_gte=credentials.start_date, date_lt=credentials.end_date)
@@ -170,7 +248,7 @@ async def count_emails(credentials: IMAPCredentials, request: FastAPIRequest):
             criteria = A(date_gte=date.today() - timedelta(days=days))
 
         with MailBox(credentials.host).login(
-            credentials.email, credentials.password
+            credentials.email, credentials.password.get_secret_value()
         ) as mailbox:
             mailbox.folder.set("INBOX")
             # Fetch UIDs only (fastest way to count)
@@ -185,7 +263,11 @@ async def count_emails(credentials: IMAPCredentials, request: FastAPIRequest):
 
 
 @app.post("/analyze", response_model=AnalysisResponse)
-async def analyze_inbox(credentials: IMAPCredentials, request: FastAPIRequest):
+@limiter.limit("5/minute")
+def analyze_inbox(credentials: IMAPCredentials, request: Request):
+    guard = _reject_disallowed_host(credentials.host, request)
+    if guard is not None:
+        return guard
     try:
         analyzer = EmailAnalyzer(credentials)
         result = analyzer.analyze()
@@ -197,7 +279,8 @@ async def analyze_inbox(credentials: IMAPCredentials, request: FastAPIRequest):
 
 
 @app.post("/analyze/stream")
-async def analyze_stream(credentials: IMAPCredentials, req: FastAPIRequest):
+@limiter.limit("5/minute")
+async def analyze_stream(credentials: IMAPCredentials, request: Request):
     """Stream NDJSON progress events then the final AnalysisResponse.
 
     Each line is a JSON object terminated with a newline character:
@@ -206,6 +289,10 @@ async def analyze_stream(credentials: IMAPCredentials, req: FastAPIRequest):
       {"type":"done","result":{...AnalysisResponse...}}
       {"type":"error","status_code":N,"payload":{...}}
     """
+    guard = _reject_disallowed_host(credentials.host, request)
+    if guard is not None:
+        return guard
+
     from fastapi.responses import StreamingResponse as _StreamingResponse
 
     loop = asyncio.get_running_loop()
@@ -226,7 +313,7 @@ async def analyze_stream(credentials: IMAPCredentials, req: FastAPIRequest):
                 await queue.put({"type": "done", "result": result.model_dump()})
             except Exception as exc:
                 logger.exception("Error in /analyze/stream")
-                status_code, payload = _error_payload(exc, req)
+                status_code, payload = _error_payload(exc, request)
                 await queue.put(
                     {"type": "error", "status_code": status_code, "payload": payload}
                 )
@@ -253,26 +340,34 @@ async def analyze_stream(credentials: IMAPCredentials, req: FastAPIRequest):
 
 
 @app.post("/delete")
-async def delete_emails(request: DeleteRequest, req: FastAPIRequest):
+@limiter.limit("5/minute")
+def delete_emails(body: DeleteRequest, request: Request):
+    guard = _reject_disallowed_host(body.credentials.host, request)
+    if guard is not None:
+        return guard
     try:
-        analyzer = EmailAnalyzer(request.credentials)
-        result = analyzer.delete_emails(request.sender_emails)
+        analyzer = EmailAnalyzer(body.credentials)
+        result = analyzer.delete_emails(body.sender_emails)
         return result
     except Exception as e:
         logger.exception("Error deleting emails")
-        status_code, payload = _error_payload(e, req)
+        status_code, payload = _error_payload(e, request)
         return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.post("/archive")
-async def archive_emails(request: DeleteRequest, req: FastAPIRequest):
+@limiter.limit("5/minute")
+def archive_emails(body: DeleteRequest, request: Request):
+    guard = _reject_disallowed_host(body.credentials.host, request)
+    if guard is not None:
+        return guard
     try:
-        analyzer = EmailAnalyzer(request.credentials)
-        result = analyzer.archive_emails(request.sender_emails)
+        analyzer = EmailAnalyzer(body.credentials)
+        result = analyzer.archive_emails(body.sender_emails)
         return result
     except Exception as e:
         logger.exception("Error archiving emails")
-        status_code, payload = _error_payload(e, req)
+        status_code, payload = _error_payload(e, request)
         return JSONResponse(status_code=status_code, content=payload)
 
 

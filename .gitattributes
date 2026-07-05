@@ -1,0 +1,4 @@
+# Keep generated artifacts LF-only so the cross-platform CI drift checks
+# (regenerate + git diff) stay byte-stable regardless of the committer's OS.
+pymail-webapp/openapi.json text eol=lf
+pymail-webapp/types/api.generated.ts text eol=lf

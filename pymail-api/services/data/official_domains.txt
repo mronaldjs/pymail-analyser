@@ -1,0 +1,36 @@
+# Domains frequently associated with well-known services ("official" senders).
+# One entry per line (lowercased); used by _is_official_domain for exact and
+# subdomain matches. Override the file path with the OFFICIAL_DOMAINS_FILE env var.
+gmail.com
+googlemail.com
+google.com
+outlook.com
+hotmail.com
+live.com
+msn.com
+icloud.com
+me.com
+mac.com
+yahoo.com
+yahoo.com.br
+proton.me
+protonmail.com
+microsoft.com
+apple.com
+amazon.com
+paypal.com
+linkedin.com
+linkedinmail.com
+facebook.com
+meta.com
+instagram.com
+twitter.com
+x.com
+github.com
+slack.com
+zoom.us
+netflix.com
+spotify.com
+stripe.com
+gov.br
+jus.br
