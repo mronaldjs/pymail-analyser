@@ -18,6 +18,8 @@ export function messageForErrorCode(
       return "The mail server is unavailable right now. Please try again shortly.";
     case "IMAP_HOST_NOT_ALLOWED":
       return "That IMAP host isn't allowed. Use your provider's public IMAP server (e.g. imap.gmail.com).";
+    case "IMAP_HOST_UNRESOLVED":
+      return "Couldn't find that IMAP host — check the host address (e.g. imap.gmail.com).";
     case "IMAP_PASSWORD_ENCODING_FAILED":
       return "The password contains characters the IMAP client can't send. Use an ASCII App Password.";
     case "IMAP_OPERATION_FAILED":

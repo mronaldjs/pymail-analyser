@@ -122,3 +122,21 @@ def test_rate_limit_returns_429_after_threshold():
     # First 5 pass through to the guard (400); the 6th trips the 5/minute limit.
     assert statuses[:5] == [400, 400, 400, 400, 400]
     assert statuses[5] == 429
+
+
+def test_analyze_dns_error_maps_to_host_unresolved(monkeypatch):
+    """A DNS-resolution failure (empty/typo'd host) maps to IMAP_HOST_UNRESOLVED
+    (400) with a 'check the host' message — not the misleading IMAP_UNAVAILABLE."""
+
+    class FailingAnalyzer:
+        def __init__(self, _credentials):
+            pass
+
+        def analyze(self):
+            raise RuntimeError("[Errno -2] Name or service not known")
+
+    monkeypatch.setattr(main, "EmailAnalyzer", FailingAnalyzer)
+
+    response = client.post("/analyze", json=_valid_credentials_payload())
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "IMAP_HOST_UNRESOLVED"

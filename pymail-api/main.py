@@ -150,10 +150,17 @@ def _error_payload(exc: Exception, request: Request = None) -> tuple[int, dict]:
         "timeout",
         "temporary failure",
         "network",
-        "name or service not known",
-        "nodename nor servname",
         "unreachable",
         "connection refused",
+    )
+    # DNS resolution failures — the host is empty/typo'd/not a real IMAP address.
+    # Distinct from infra_markers so the user gets "check the host" instead of the
+    # misleading "server unavailable".
+    dns_markers = (
+        "name or service not known",
+        "nodename nor servname",
+        "getaddrinfo failed",
+        "no address associated",
     )
 
     # request_id propagation
@@ -182,6 +189,14 @@ def _error_payload(exc: Exception, request: Request = None) -> tuple[int, dict]:
         if request_id:
             payload["request_id"] = request_id
         return 401, payload
+    if any(marker in message for marker in dns_markers):
+        payload = {
+            "detail": "Não foi possível encontrar o servidor IMAP. Verifique o endereço do host (ex.: imap.gmail.com).",
+            "error_code": "IMAP_HOST_UNRESOLVED",
+        }
+        if request_id:
+            payload["request_id"] = request_id
+        return 400, payload
     if any(marker in message for marker in infra_markers):
         payload = {
             "detail": "Servidor IMAP indisponível no momento. Tente novamente em instantes.",
