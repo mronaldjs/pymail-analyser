@@ -206,15 +206,34 @@ Contributions are welcome! Feel free to open issues or submit pull requests. Ple
 - Tests pass and cover new functionality
 - Documentation is updated accordingly
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for more details.
 
 For release validation, follow [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+## 💜 Support this project
+
+PyMail Analyser is free and open-source, and it runs entirely on your machine — I never see your credentials. If it saved you some inbox pain, a little support keeps it going:
+
+- ⭐ **Star the repo** — the cheapest way to help.
+- **[GitHub Sponsors](https://github.com/sponsors/mronaldjs)** — one-off or recurring.
+- **[Buy Me a Coffee](https://www.buymeacoffee.com/mronaldjs)** ☕
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-**Developed to make your digital life more organized!**
 
-📧 Questions? Open an [issue](https://github.com/mronaldjs/pymail-analyser/issues) or reach out on [LinkedIn](https://linkedin.com/in/mronaldjs)
+## 👤 About · Quem sou eu
+
+<img src="https://github.com/mronaldjs.png" width="96" align="left" alt="Marcello" style="border-radius: 12px; margin-right: 16px;" />
+
+**Marcello — [@mronaldjs](https://github.com/mronaldjs)**, full-stack developer.
+
+I built PyMail Analyser to help me clean up mass email in an easy and safe way — then figured others might want the same, without handing their inbox password to a random SaaS.
+
+**[Portfolio](https://www.mronaldjs.com)** · **[GitHub](https://github.com/mronaldjs)** · **[LinkedIn](https://linkedin.com/in/mronaldjs)**
+
+<br clear="left" />
+
+📧 Questions? Open an [issue](https://github.com/mronaldjs/pymail-analyser/issues).
