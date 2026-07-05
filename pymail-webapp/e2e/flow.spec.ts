@@ -99,7 +99,7 @@ test('main flow: analyze and archive selected', async ({ page }) => {
   await page.getByPlaceholder('••••••••').fill('fake-app-password');
   await page.getByRole('button', { name: 'Analyze Inbox' }).click();
 
-  await expect(page.getByRole('heading', { name: 'Inbox Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
   await page.getByLabel('Select Promoções Diárias').check();
   await page.getByRole('button', { name: 'Archive Selected' }).click();

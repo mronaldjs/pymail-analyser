@@ -65,7 +65,7 @@ export function CredentialsForm({
         {!inferredHost && (
           <div className="space-y-2 duration-300 animate-in fade-in slide-in-from-top-2">
             <label className="text-sm font-medium text-foreground">
-              Custom IMAP Host
+              Custom IMAP Host <span className="text-destructive">*</span>
             </label>
             <Input
               value={credentials.host}
@@ -75,6 +75,10 @@ export function CredentialsForm({
               placeholder="imap.yourserver.com"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              We couldn&apos;t detect your provider — enter your IMAP host (e.g.{" "}
+              <code>imap.gmail.com</code>) to continue.
+            </p>
           </div>
         )}
 
@@ -234,6 +238,7 @@ export function CredentialsForm({
           className="flex-1"
           disabled={
             !credentials.password ||
+            !credentials.host.trim() ||
             (dateRangeMode === "custom" &&
               (!credentials.start_date || !credentials.end_date))
           }
