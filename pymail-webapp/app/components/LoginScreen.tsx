@@ -128,7 +128,7 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
 
         <div className="mt-4 w-full max-w-md">
           <div className="flex gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            <Lock className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#98c379]" />
             <div className="space-y-1 leading-relaxed">
               <p className="font-semibold text-foreground">
                 Credentials Privacy
