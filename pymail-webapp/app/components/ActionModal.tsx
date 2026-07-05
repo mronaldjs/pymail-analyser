@@ -86,7 +86,7 @@ export function ActionModal({
             <div className="flex justify-center">
               <Loader2
                 key="processing-loader"
-                className="w-12 h-12 text-blue-500 animate-spin"
+                className="w-12 h-12 text-primary animate-spin"
               />
             </div>
             <div className="space-y-2">
@@ -107,11 +107,11 @@ export function ActionModal({
             <div className="flex justify-center">
               <CheckCircle2
                 key="success-icon"
-                className="w-12 h-12 text-green-500"
+                className="w-12 h-12 text-[#98c379]"
               />
             </div>
             <div className="space-y-1">
-              <p className="font-semibold text-green-600">
+              <p className="font-semibold text-[#98c379]">
                 {actionType === "delete" ? "Delete" : "Archive"}{" "}
                 completed!
               </p>
@@ -129,10 +129,10 @@ export function ActionModal({
         {actionStatus === "error" && (
           <div className="py-6 space-y-4 text-center">
             <div className="flex justify-center">
-              <MailX key="error-icon" className="w-12 h-12 text-red-500" />
+              <MailX key="error-icon" className="w-12 h-12 text-destructive" />
             </div>
             <div className="space-y-1">
-              <p className="font-semibold text-red-600">
+              <p className="font-semibold text-destructive">
                 Error during {actionType === "delete" ? "delete" : "archive"}
               </p>
               <p className="text-sm text-muted-foreground">

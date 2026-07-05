@@ -7,6 +7,7 @@ import { EmailForm } from "./EmailForm";
 import { CredentialsForm } from "./CredentialsForm";
 import { HelpModal } from "./HelpModal";
 import { Lock } from "lucide-react";
+import { popUpAlert } from "@/utils/alerts";
 
 interface LoginScreenProps {
   onAnalyze: (credentials: IMAPCredentials) => void;
@@ -33,8 +34,9 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
     const host = inferIMAPHost(email);
 
     if (!host) {
-      alert(
-        "Email domain not recognized. You will need to fill in the IMAP host manually.",
+      popUpAlert(
+        "Email domain not recognized — fill in the IMAP host manually.",
+        "info",
       );
       setInferredHost("");
       setCredentials((prev) => ({ ...prev, email, host: "" }));
@@ -64,20 +66,35 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
 
   return (
     <>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-br from-background via-background to-primary/10 p-4 relative overflow-hidden">
-        {/* Decorative background blur elements */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/20 blur-[100px] rounded-full pointer-events-none" />
+      <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background p-4">
+        {/* Quiet ambient wash (accent radial). */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            background:
+              "radial-gradient(60% 50% at 22% 18%, rgba(var(--accent-rgb), 0.10), transparent 70%), radial-gradient(55% 45% at 80% 82%, rgba(var(--accent-rgb), 0.07), transparent 72%)",
+          }}
+        />
 
         <div className="absolute top-4 right-4 z-10">
           <ThemeSelector />
         </div>
 
         <div className="w-full max-w-md z-10">
-          <Card className="glass-card border-white/10 dark:border-white/5 relative overflow-hidden">
+          <Card className="relative overflow-hidden shadow-2xl">
+            {/* Terminal chrome */}
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+              <span className="h-3 w-3 rounded-full bg-destructive/70" />
+              <span className="h-3 w-3 rounded-full bg-[#e5c07b]/70" />
+              <span className="h-3 w-3 rounded-full bg-[#98c379]/70" />
+              <span className="ml-3 text-xs text-muted-foreground">
+                ~/connect
+              </span>
+            </div>
             <CardHeader className="pb-4">
-              <CardTitle className="text-3xl font-extrabold text-center bg-clip-text text-transparent bg-linear-to-r from-primary to-accent">
-                Connect Inbox
+              <p className="eyebrow">Secure IMAP session</p>
+              <CardTitle className="text-2xl font-bold tracking-tight">
+                Connect inbox
               </CardTitle>
             </CardHeader>
             <CardContent className="transition-all duration-500 ease-in-out">
@@ -111,7 +128,7 @@ export function LoginScreen({ onAnalyze }: LoginScreenProps) {
 
         <div className="mt-4 w-full max-w-md">
           <div className="flex gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            <Lock className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#98c379]" />
             <div className="space-y-1 leading-relaxed">
               <p className="font-semibold text-foreground">
                 Credentials Privacy

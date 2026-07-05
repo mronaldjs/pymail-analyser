@@ -1,0 +1,4 @@
+# Shows a "Sponsor" button on the repo. See:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+github: [mronaldjs]
+buy_me_a_coffee: mronaldjs

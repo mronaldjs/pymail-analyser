@@ -1,5 +1,3 @@
-import { Loader2 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { ScanProgress } from "@/types/api";
 import { useState, useEffect } from "react";
 import { ThemeSelector } from "./ThemeSelector";
@@ -23,142 +21,158 @@ function formatEta(seconds: number | null): string | null {
   return `~${hours}h ${remMin}min remaining`;
 }
 
-function IndeterminateBar() {
-  return (
-    <div className="relative w-full h-2 overflow-hidden rounded-full bg-slate-700/50">
-      <div className="absolute top-0 bottom-0 rounded-full bg-linear-to-r from-primary to-accent animate-indeterminate" />
-    </div>
-  );
-}
+// Canonical scan phases, rendered as a terminal log.
+const SCAN_PHASES = [
+  { key: "fetching", label: "fetch inbox headers" },
+  { key: "scanning", label: "scan unsubscribe links" },
+  { key: "processing", label: "check domain reputation" },
+] as const;
 
 const TIPS = [
-  "Unsubscribing from newsletters reduces your digital footprint.",
-  "Emails emit CO2. A cleaner inbox is a greener inbox.",
-  "Check your sender's domain reputation to avoid phishing.",
-  "Review high-risk senders frequently to protect your account.",
-  "Archiving instead of deleting preserves history while decluttering.",
+  "Unsubscribing from newsletters shrinks your digital footprint.",
+  "Emails emit CO₂ — a cleaner inbox is a greener inbox.",
+  "Check a sender's domain reputation to spot phishing.",
+  "Archiving instead of deleting declutters while keeping history.",
 ];
+
+function phaseDetail(phase: string, p?: ScanProgress): string {
+  if (!p) return "";
+  if (phase === "fetching") {
+    const total = p.phaseTotal || p.current;
+    return total > p.current
+      ? `${p.current} of ~${total}`
+      : `${p.current} emails`;
+  }
+  if (phase === "scanning") return `${p.current}/${p.phaseTotal}`;
+  if (phase === "processing") return `${p.current}/${p.phaseTotal}`;
+  return "";
+}
 
 export function LoadingScreen({ progress }: LoadingScreenProps) {
   const [tipIndex, setTipIndex] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTipIndex((prev) => (prev + 1) % TIPS.length);
-    }, 4500);
+    const interval = setInterval(
+      () => setTipIndex((prev) => (prev + 1) % TIPS.length),
+      4500,
+    );
     return () => clearInterval(interval);
   }, []);
 
-  const getPhaseMessage = () => {
-    if (!progress) return "Analyzing your inbox...";
-    switch (progress.phase) {
-      case "counting":
-        return "Counting emails in period...";
-      case "fetching":
-        return "Fetching emails from inbox...";
-      case "scanning":
-        return "Scanning for unsubscribe links...";
-      case "processing":
-        return "Checking domain reputation...";
-      default:
-        return "Analyzing your inbox...";
-    }
-  };
-
-  const getProgressDetails = () => {
-    if (!progress || progress.phase === "idle") {
-      return "This may take a few seconds";
-    }
-    if (progress.phase === "counting") return "Querying the IMAP server";
-    if (progress.phase === "fetching") {
-      const total = progress.phaseTotal || progress.current;
-      return `${progress.current.toLocaleString()} ${total > progress.current ? `of ~${total.toLocaleString()}` : ""} emails processed`.trim();
-    }
-    if (progress.phase === "scanning")
-      return `${progress.current} of ${progress.phaseTotal} messages scanned`;
-    if (progress.phase === "processing")
-      return `${progress.current} of ${progress.phaseTotal} domains checked`;
-    return "Processing...";
-  };
-
-  const isCounting = progress?.phase === "counting";
-  const showDeterminateBar =
-    progress &&
-    progress.phase !== "idle" &&
-    progress.phase !== "counting" &&
-    progress.percentage > 0;
+  const phase = progress?.phase ?? "idle";
+  const currentIdx = SCAN_PHASES.findIndex((s) => s.key === phase);
+  const percentage = progress?.percentage ?? 0;
   const eta = progress ? formatEta(progress.etaSeconds) : null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-br from-background via-background to-primary/20 p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-[50%] h-[50%] bg-primary/20 blur-[120px] rounded-full pointer-events-none animate-pulse duration-10000" />
-      <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] bg-accent/20 blur-[120px] rounded-full pointer-events-none animate-pulse duration-7000 delay-1000" />
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background p-4">
+      {/* Quiet ambient wash (accent radial), no loud blobs. */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-70"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 22% 18%, rgba(var(--accent-rgb), 0.10), transparent 70%), radial-gradient(55% 45% at 80% 82%, rgba(var(--accent-rgb), 0.07), transparent 72%)",
+        }}
+      />
 
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute right-4 top-4 z-10">
         <ThemeSelector />
       </div>
 
-      <div className="flex flex-col items-center space-y-8 w-full max-w-md z-10">
-        <div className="relative w-24 h-24 flex items-center justify-center">
-          <div className="absolute inset-0 border-4 border-primary/20 rounded-full animate-ping duration-3000" />
-          <Loader2 className="w-16 h-16 text-primary animate-spin duration-1000" />
-        </div>
+      <div className="z-10 w-full max-w-xl space-y-4">
+        {/* Terminal window */}
+        <div className="relative overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
+          {/* Top accent progress bar */}
+          <div
+            className="absolute left-0 top-0 h-0.5 bg-primary transition-[width] duration-500 ease-out"
+            style={{ width: `${percentage}%` }}
+          />
 
-        <div className="glass-card w-full p-8 rounded-2xl text-center space-y-4">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold bg-clip-text text-transparent bg-linear-to-r from-primary to-accent">
-              {getPhaseMessage()}
-            </h2>
-            <p className="text-muted-foreground font-medium">
-              {getProgressDetails()}
-            </p>
+          {/* Chrome bar */}
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+            <span className="h-3 w-3 rounded-full bg-destructive/70" />
+            <span className="h-3 w-3 rounded-full bg-[#e5c07b]/70" />
+            <span className="h-3 w-3 rounded-full bg-[#98c379]/70" />
+            <span className="ml-3 text-xs text-muted-foreground">
+              ~/pymail · analyze
+            </span>
           </div>
 
-          {showDeterminateBar && (
-            <div className="mt-6 space-y-2 w-full animate-in fade-in slide-in-from-bottom-2">
-              <Progress
-                value={progress.percentage}
-                className="w-full h-2 bg-slate-700/50"
-              />
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="text-primary">{progress.percentage}%</span>
-                {eta && <span className="text-accent">{eta}</span>}
-              </div>
+          {/* Body — the live log */}
+          <div className="space-y-2 p-5 text-sm leading-relaxed">
+            <div className="text-muted-foreground">
+              <span className="text-primary">$</span> pymail analyze --inbox
             </div>
-          )}
 
-          {isCounting && (
-            <div className="mt-6 w-full animate-in fade-in slide-in-from-bottom-2">
-              <IndeterminateBar />
-            </div>
-          )}
+            {SCAN_PHASES.map((s, i) => {
+              const status =
+                currentIdx === -1
+                  ? percentage >= 100
+                    ? "done"
+                    : "pending"
+                  : i < currentIdx
+                    ? "done"
+                    : i === currentIdx
+                      ? "active"
+                      : "pending";
+              const detail = status === "pending" ? "" : phaseDetail(s.key, progress);
+              return (
+                <div
+                  key={s.key}
+                  className={`flex items-center gap-3 ${
+                    status === "pending" ? "text-muted-foreground/40" : ""
+                  }`}
+                >
+                  <span
+                    className={
+                      status === "done"
+                        ? "text-[#98c379]"
+                        : status === "active"
+                          ? "text-primary"
+                          : "text-muted-foreground/40"
+                    }
+                  >
+                    {status === "done" ? "✓" : status === "active" ? "▸" : "·"}
+                  </span>
+                  <span
+                    className={
+                      status === "active" ? "text-foreground" : undefined
+                    }
+                  >
+                    {s.label}
+                  </span>
+                  <span className="min-w-0 flex-1 border-b border-dashed border-border/50" />
+                  <span
+                    className={`tabular-nums ${
+                      status === "active"
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {detail}
+                  </span>
+                  {status === "active" && (
+                    <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-primary" />
+                  )}
+                </div>
+              );
+            })}
 
-          {!progress && (
-            <div className="mt-6 flex justify-center gap-1.5 animate-in fade-in slide-in-from-bottom-2">
-              <div
-                className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: "0s" }}
-              />
-              <div
-                className="w-2.5 h-2.5 bg-accent rounded-full animate-bounce"
-                style={{ animationDelay: "0.15s" }}
-              />
-              <div
-                className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce"
-                style={{ animationDelay: "0.3s" }}
-              />
+            {/* Status line */}
+            <div className="flex items-center justify-between pt-2 text-xs">
+              <span className="text-primary">{percentage}%</span>
+              {eta && <span className="text-muted-foreground">{eta}</span>}
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="h-12 flex items-center justify-center overflow-hidden w-full text-center px-4">
-          <p
-            key={tipIndex}
-            className="text-sm font-medium text-muted-foreground/80 animate-in fade-in slide-in-from-bottom-4 duration-500 text-balance"
-          >
-            💡 {TIPS[tipIndex]}
-          </p>
-        </div>
+        {/* Rotating hint */}
+        <p
+          key={tipIndex}
+          className="px-2 text-center text-xs text-muted-foreground/70 duration-500 animate-in fade-in text-balance"
+        >
+          {TIPS[tipIndex]}
+        </p>
       </div>
     </main>
   );

@@ -25,8 +25,8 @@ describe('emailProviders utils', () => {
       expect(getProviderName('test@gmail.com')).toBe('Gmail')
     })
 
-    it('should return Gmail (UFG) for specific corporate domain', () => {
-      expect(getProviderName('aluno@ufg.br')).toBe('Gmail (UFG)')
+    it('should return Yahoo Mail for yahoo accounts', () => {
+      expect(getProviderName('user@yahoo.com')).toBe('Yahoo Mail')
     })
 
     it('should return the domain itself if provider is not mapped', () => {

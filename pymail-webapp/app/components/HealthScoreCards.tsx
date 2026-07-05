@@ -18,15 +18,14 @@ export function HealthScoreCards({
   const strokeDashoffset = circumference - (healthScore / 100) * circumference;
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-emerald-500";
-    if (score >= 50) return "text-yellow-500";
-    return "text-red-500";
+    if (score >= 80) return "text-[#98c379]";
+    if (score >= 50) return "text-[#e5c07b]";
+    return "text-destructive";
   };
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-      <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden relative transition-all duration-300 ease-in-out hover:shadow-2xl hover:shadow-primary/20 hover:scale-[1.02] cursor-default">
-        <div className="absolute -right-10 -top-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+      <Card className="lift glass-card relative overflow-hidden duration-500 animate-in fade-in slide-in-from-bottom-4">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold tracking-tight">
             Health Score
@@ -41,7 +40,7 @@ export function HealthScoreCards({
               viewBox="0 0 100 100"
             >
               <circle
-                className="text-slate-800"
+                className="text-muted"
                 strokeWidth="8"
                 stroke="currentColor"
                 fill="transparent"
@@ -86,8 +85,7 @@ export function HealthScoreCards({
         </CardContent>
       </Card>
 
-      <Card className="glass-card animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 overflow-hidden relative transition-all duration-300 ease-in-out hover:shadow-2xl hover:shadow-accent/20 hover:scale-[1.02] cursor-default">
-        <div className="absolute -right-10 -top-10 w-32 h-32 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
+      <Card className="lift glass-card relative overflow-hidden delay-100 duration-700 animate-in fade-in slide-in-from-bottom-4">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-semibold tracking-tight">
             Emails Analyzed
@@ -95,7 +93,7 @@ export function HealthScoreCards({
           <Mail className="h-4 w-4 text-accent" />
         </CardHeader>
         <CardContent className="flex flex-col justify-center h-[120px]">
-          <div className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-linear-to-r from-foreground to-muted-foreground">
+          <div className="text-4xl font-extrabold tracking-tight text-foreground">
             {totalEmailsScanned.toLocaleString()}
           </div>
           <p className="text-xs text-muted-foreground mt-2 font-medium">
