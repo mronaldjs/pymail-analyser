@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnalysisResponse, IMAPCredentials, SenderStats } from "@/types/api";
+import { CommandPalette, type Command } from "./CommandPalette";
+import {
+  getAccentList,
+  applyAccent,
+  saveAccentPreference,
+  loadAccentPreference,
+} from "../styles/themes";
 import { DashboardHeader } from "./DashboardHeader";
 import { HealthScoreCards } from "./HealthScoreCards";
 import { SendersHeader } from "./SendersHeader";
@@ -80,6 +88,7 @@ export function Dashboard({
   const [sortField, setSortField] = useState<SortField>("spam_score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const { resolvedTheme, setTheme } = useTheme();
 
   const groupConfig: GroupConfig = {
     groupBy,
@@ -139,6 +148,48 @@ export function Dashboard({
     onExecuteAction(senderEmails);
   };
 
+  const cycleAccent = () => {
+    const list = getAccentList();
+    const current = loadAccentPreference();
+    const idx = list.findIndex((a) => a.name === current);
+    const next = list[(idx + 1) % list.length];
+    applyAccent(next.name);
+    saveAccentPreference(next.name);
+  };
+
+  const selectedCount = selectedKeys.size;
+  const commands: Command[] = [
+    {
+      id: "archive-selected",
+      label: `Archive selected (${selectedCount})`,
+      disabled: selectedCount === 0,
+      run: handleArchiveSelected,
+    },
+    {
+      id: "delete-selected",
+      label: `Delete selected (${selectedCount})`,
+      disabled: selectedCount === 0,
+      run: handleDeleteSelected,
+    },
+    {
+      id: "toggle-view",
+      label:
+        viewMode === "list" ? "Switch to grid view" : "Switch to list view",
+      run: () => setViewMode(viewMode === "list" ? "grid" : "list"),
+    },
+    {
+      id: "toggle-theme",
+      label: "Toggle light / dark",
+      run: () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
+    },
+    {
+      id: "cycle-accent",
+      label: "Next accent color",
+      run: cycleAccent,
+    },
+    { id: "disconnect", label: "Disconnect", run: onDisconnect },
+  ];
+
   return (
     <main className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -191,6 +242,8 @@ export function Dashboard({
           onConfirm={handleExecuteAction}
         />
       </div>
+
+      <CommandPalette commands={commands} />
     </main>
   );
 }

@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeSelector } from "./ThemeSelector";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useReadiness } from "@/app/hooks/useReadiness";
+import { OPEN_COMMAND_PALETTE } from "./CommandPalette";
 
 interface DashboardHeaderProps {
   onDisconnect: () => void;
@@ -39,6 +40,17 @@ export function DashboardHeader({ onDisconnect }: DashboardHeaderProps) {
             <span className="hidden sm:inline">VirusTotal Active</span>
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(OPEN_COMMAND_PALETTE))}
+          title="Command palette"
+          className="hidden cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground sm:inline-flex"
+        >
+          Commands
+          <kbd className="rounded border border-border px-1 text-[10px]">
+            ⌘K
+          </kbd>
+        </button>
         <ThemeSelector />
         <Button variant="outline" onClick={onDisconnect} size="sm">
           <LogOut className="h-4 w-4 sm:mr-2" />
