@@ -181,18 +181,32 @@ def _parse_dmarc_policy(txt_lower: str) -> str:
 # regress — resolving them via DNS wastes 3 round trips per scan.
 # ---------------------------------------------------------------------------
 
-_HARDCODED_TRUSTED_DOMAINS: frozenset = frozenset({
-    "gmail.com", "googlemail.com", "google.com",
-    "outlook.com", "hotmail.com", "live.com", "msn.com",
-    "microsoft.com",
-    "icloud.com", "me.com", "mac.com", "apple.com",
-    "yahoo.com", "yahoo.com.br",
-    "proton.me", "protonmail.com",
-    "amazon.com",
-    "linkedin.com", "linkedinmail.com",
-    "facebook.com", "meta.com",
-    "paypal.com",
-})
+_HARDCODED_TRUSTED_DOMAINS: frozenset = frozenset(
+    {
+        "gmail.com",
+        "googlemail.com",
+        "google.com",
+        "outlook.com",
+        "hotmail.com",
+        "live.com",
+        "msn.com",
+        "microsoft.com",
+        "icloud.com",
+        "me.com",
+        "mac.com",
+        "apple.com",
+        "yahoo.com",
+        "yahoo.com.br",
+        "proton.me",
+        "protonmail.com",
+        "amazon.com",
+        "linkedin.com",
+        "linkedinmail.com",
+        "facebook.com",
+        "meta.com",
+        "paypal.com",
+    }
+)
 
 _HARDCODED_TRUSTED_SIGNAL: Dict[str, Any] = {
     "mx": True,
@@ -341,9 +355,7 @@ def virustotal_domain_flags(domain: str) -> Optional[Tuple[int, int]]:
     try:
         with urllib.request.urlopen(req, timeout=12.0) as resp:
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
-        stats = (
-            body.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
-        )
+        stats = body.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
         mal = int(stats.get("malicious", 0) or 0)
         sus = int(stats.get("suspicious", 0) or 0)
         _cache_set(cache_key, [mal, sus])
@@ -375,4 +387,3 @@ def describe_domain_signals_en(sig: Dict[str, Any]) -> str:
     if sig.get("error"):
         parts.append("DNS error")
     return " · ".join(parts)
-

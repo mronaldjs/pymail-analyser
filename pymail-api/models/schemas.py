@@ -2,8 +2,10 @@ from pydantic import BaseModel, EmailStr, Field, SecretStr
 from typing import List, Optional
 from datetime import date
 
+
 class DomainReputation(BaseModel):
     """Signals consulted for the sender's domain(s) (Public DNS; Optional VT)."""
+
     primary_domain: str = ""
     checked_domains: List[str] = Field(default_factory=list)
     mx: Optional[bool] = None
@@ -20,6 +22,7 @@ class DomainReputation(BaseModel):
     virustotal_malicious: Optional[int] = None
     virustotal_suspicious: Optional[int] = None
 
+
 class IMAPCredentials(BaseModel):
     host: str = Field(..., description="IMAP Server Host (e.g., imap.gmail.com)")
     email: EmailStr = Field(..., description="User email address")
@@ -27,6 +30,7 @@ class IMAPCredentials(BaseModel):
     days_limit: Optional[int] = Field(None, description="Number of days to look back for analysis")
     start_date: Optional[date] = Field(None, description="Start date for custom range (YYYY-MM-DD)")
     end_date: Optional[date] = Field(None, description="End date for custom range (YYYY-MM-DD)")
+
 
 class SenderStats(BaseModel):
     sender_name: str
@@ -43,6 +47,7 @@ class SenderStats(BaseModel):
     domain_reputation: Optional[DomainReputation] = None
     unsubscribe_link: Optional[str] = None
 
+
 class AnalysisResponse(BaseModel):
     total_emails_scanned: int
     ignored_senders: List[SenderStats]
@@ -51,6 +56,7 @@ class AnalysisResponse(BaseModel):
         None,
         description="provider | tenant — granularity used to compute source_key",
     )
+
 
 class DeleteRequest(BaseModel):
     credentials: IMAPCredentials
@@ -65,7 +71,6 @@ class HealthResponse(BaseModel):
     )
 
 
-
 class ReadyResponse(BaseModel):
     status: str = Field(..., description="API readiness status")
     source_grouping_mode: Optional[str] = Field(
@@ -76,6 +81,7 @@ class ReadyResponse(BaseModel):
         False,
         description="True when VIRUSTOTAL_API_KEY is set and domain reputation will include VT signals",
     )
+
 
 class ErrorResponse(BaseModel):
     detail: str

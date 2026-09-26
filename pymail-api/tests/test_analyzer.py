@@ -6,13 +6,11 @@ import services.analyzer as analyzer_module
 from services.analyzer import EmailAnalyzer, normalize_source, _compute_rank_and_risk
 from models.schemas import IMAPCredentials, AnalysisResponse
 
+
 class TestEmailAnalyzer(unittest.TestCase):
     def setUp(self):
         self.mock_credentials = IMAPCredentials(
-            host="imap.test.com",
-            email="test@test.com",
-            password="password123",
-            days_limit=30
+            host="imap.test.com", email="test@test.com", password="password123", days_limit=30
         )
 
     def test_normalize_source_linkedin(self):
@@ -40,7 +38,9 @@ class TestEmailAnalyzer(unittest.TestCase):
         self.assertEqual(source, "myblog")
 
     def test_env_flag_controls_grouping_mode_on_module_load(self):
-        with patch.dict(os.environ, {"NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS": "true"}, clear=False):
+        with patch.dict(
+            os.environ, {"NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS": "true"}, clear=False
+        ):
             reloaded = importlib.reload(analyzer_module)
             self.assertTrue(reloaded._INCLUDE_PSL_PRIVATE_DOMAINS)
             self.assertEqual(reloaded._SOURCE_GROUPING_MODE, "tenant")
@@ -90,15 +90,16 @@ class TestEmailAnalyzer(unittest.TestCase):
             "dmarc": "reject",
             "error": None,
         }
+
         # Mocking message objects
         class MockMsg:
             def __init__(self, from_email, from_name, seen):
                 self.from_values = MagicMock()
                 self.from_values.email = from_email
                 self.from_values.name = from_name
-                self.flags = ['SEEN'] if seen else []
-                self.headers = {'list-unsubscribe': ['<https://unsub.com>']}
-                self.uid = '123'
+                self.flags = ["SEEN"] if seen else []
+                self.headers = {"list-unsubscribe": ["<https://unsub.com>"]}
+                self.uid = "123"
 
         # Setup mock mailbox with messages
         mock_messages = [
@@ -136,18 +137,29 @@ class TestEmailAnalyzer(unittest.TestCase):
             return {"mx": True, "spf": "strict", "dmarc": "reject", "error": None}
 
         mock_dns.side_effect = dns_side_effect
+
         class MockMsg:
             def __init__(self, from_email, from_name, seen, headers):
                 self.from_values = MagicMock()
                 self.from_values.email = from_email
                 self.from_values.name = from_name
-                self.flags = ['SEEN'] if seen else []
+                self.flags = ["SEEN"] if seen else []
                 self.headers = headers
-                self.uid = '123'
+                self.uid = "123"
 
         mock_messages = [
-            MockMsg("ok@google.com", "Google Alerts", True, {'list-unsubscribe': ['<https://unsub.google.com>']}),
-            MockMsg("ok@google.com", "Google Alerts", True, {'list-unsubscribe': ['<https://unsub.google.com>']}),
+            MockMsg(
+                "ok@google.com",
+                "Google Alerts",
+                True,
+                {"list-unsubscribe": ["<https://unsub.google.com>"]},
+            ),
+            MockMsg(
+                "ok@google.com",
+                "Google Alerts",
+                True,
+                {"list-unsubscribe": ["<https://unsub.google.com>"]},
+            ),
             MockMsg("promo@deals.bogus.xyz", "Hot Deal", False, {}),
             MockMsg("promo@deals.bogus.xyz", "Hot Deal", False, {}),
         ]
@@ -173,14 +185,15 @@ class TestEmailAnalyzer(unittest.TestCase):
             "dmarc": "reject",
             "error": None,
         }
+
         class MockMsg:
             def __init__(self, from_email, from_name, seen):
                 self.from_values = MagicMock()
                 self.from_values.email = from_email
                 self.from_values.name = from_name
-                self.flags = ['SEEN'] if seen else []
+                self.flags = ["SEEN"] if seen else []
                 self.headers = {}
-                self.uid = '123'
+                self.uid = "123"
 
         mock_messages = [
             MockMsg("jobs-noreply@linkedinmail.com", "LinkedIn Jobs", False),
@@ -198,34 +211,37 @@ class TestEmailAnalyzer(unittest.TestCase):
         sender = result.ignored_senders[0]
         self.assertEqual(sender.source_key, "linkedin")
         self.assertEqual(sender.email_count, 2)
-        self.assertEqual(set(sender.sender_emails), {
-            "jobs-noreply@linkedinmail.com",
-            "messages-noreply@linkedin.com",
-        })
+        self.assertEqual(
+            set(sender.sender_emails),
+            {
+                "jobs-noreply@linkedinmail.com",
+                "messages-noreply@linkedin.com",
+            },
+        )
 
     @patch("services.analyzer.MailBox")
     def test_delete_emails(self, mock_mailbox_class):
         mock_mailbox = mock_mailbox_class.return_value
         mock_mailbox.login.return_value.__enter__.return_value = mock_mailbox
         mock_mailbox.folder.set = MagicMock()
-        
+
         # Mock folder list to include a trash folder
         mock_folder = MagicMock()
-        mock_folder.name = 'Trash'
+        mock_folder.name = "Trash"
         mock_mailbox.folder.list.return_value = [mock_folder]
-        
+
         # Mock search results (uids)
         class MockMsg:
             def __init__(self, uid):
                 self.uid = uid
-        
-        msg1 = MockMsg('1')
+
+        msg1 = MockMsg("1")
         msg1.from_values = MagicMock()
         msg1.from_values.email = "spam@promo.com"
-        msg2 = MockMsg('2')
+        msg2 = MockMsg("2")
         msg2.from_values = MagicMock()
         msg2.from_values.email = "spam@promo.com"
-        msg3 = MockMsg('3')
+        msg3 = MockMsg("3")
         msg3.from_values = MagicMock()
         msg3.from_values.email = "other@site.com"
         mock_mailbox.fetch.return_value = [msg1, msg2, msg3]
@@ -234,7 +250,7 @@ class TestEmailAnalyzer(unittest.TestCase):
         result = analyzer.delete_emails(["spam@promo.com"])
 
         self.assertEqual(result["deleted"], 2)
-        mock_mailbox.move.assert_called_with(['1', '2'], 'Trash')
+        mock_mailbox.move.assert_called_with(["1", "2"], "Trash")
 
     def test_delete_emails_empty_list(self):
         """Test that delete_emails returns 0 when given empty list"""
@@ -256,7 +272,7 @@ class TestEmailAnalyzer(unittest.TestCase):
 
         # No known archive folder available
         mock_folder = MagicMock()
-        mock_folder.name = 'INBOX'
+        mock_folder.name = "INBOX"
         mock_mailbox.folder.list.return_value = [mock_folder]
 
         class MockMsg:
@@ -266,8 +282,8 @@ class TestEmailAnalyzer(unittest.TestCase):
                 self.from_values.email = email
 
         mock_mailbox.fetch.return_value = [
-            MockMsg('1', 'spam@promo.com'),
-            MockMsg('2', 'other@site.com'),
+            MockMsg("1", "spam@promo.com"),
+            MockMsg("2", "other@site.com"),
         ]
 
         analyzer = EmailAnalyzer(self.mock_credentials)
@@ -285,7 +301,7 @@ class TestEmailAnalyzer(unittest.TestCase):
         mock_mailbox.folder.set = MagicMock()
 
         mock_folder = MagicMock()
-        mock_folder.name = 'Archive'
+        mock_folder.name = "Archive"
         mock_mailbox.folder.list.return_value = [mock_folder]
 
         class MockMsg:
@@ -295,8 +311,8 @@ class TestEmailAnalyzer(unittest.TestCase):
                 self.from_values.email = email
 
         mock_mailbox.fetch.return_value = [
-            MockMsg('1', 'spam@promo.com'),
-            MockMsg('2', 'other@site.com'),
+            MockMsg("1", "spam@promo.com"),
+            MockMsg("2", "other@site.com"),
         ]
 
         analyzer = EmailAnalyzer(self.mock_credentials)
@@ -304,7 +320,7 @@ class TestEmailAnalyzer(unittest.TestCase):
 
         self.assertEqual(result["archived"], 1)
         self.assertEqual(result["not_archived"], 0)
-        mock_mailbox.move.assert_called_with(['1'], 'Archive')
+        mock_mailbox.move.assert_called_with(["1"], "Archive")
         mock_mailbox.delete.assert_not_called()
 
     def test_compute_rank_and_risk_official_gets_rank_reduction(self):
@@ -326,7 +342,10 @@ class TestEmailAnalyzer(unittest.TestCase):
         """Golden snapshot locking the exact scoring math and response shape so
         the analyze() refactor stays behavior-preserving."""
         mock_dns.return_value = {
-            "mx": True, "spf": "strict", "dmarc": "reject", "error": None,
+            "mx": True,
+            "spf": "strict",
+            "dmarc": "reject",
+            "error": None,
         }
 
         class MockMsg:
@@ -336,9 +355,7 @@ class TestEmailAnalyzer(unittest.TestCase):
                 self.from_values.email = email
                 self.from_values.name = name
                 self.flags = ["SEEN"] if seen else []
-                self.headers = (
-                    {"list-unsubscribe": ["<https://u.example/x>"]} if unsub else {}
-                )
+                self.headers = {"list-unsubscribe": ["<https://u.example/x>"]} if unsub else {}
 
         # promo: 3 msgs, 0 read → spam_score = 3 * (1 - 0) * 10 = 30
         # news:  2 msgs, 2 read → spam_score = 2 * (1 - 1) * 10 = 0
@@ -373,7 +390,10 @@ class TestEmailAnalyzer(unittest.TestCase):
         """A sender without a List-Unsubscribe header has its most recent message
         body scanned; an unsubscribe link found there is attached to the group."""
         mock_dns.return_value = {
-            "mx": True, "spf": "strict", "dmarc": "reject", "error": None,
+            "mx": True,
+            "spf": "strict",
+            "dmarc": "reject",
+            "error": None,
         }
 
         class HeaderMsg:
@@ -411,9 +431,7 @@ class TestEmailAnalyzer(unittest.TestCase):
 
         senders = {s.source_key: s for s in result.ignored_senders}
         self.assertIn("promo", senders)
-        self.assertEqual(
-            senders["promo"].unsubscribe_link, "https://promo.com/unsub"
-        )
+        self.assertEqual(senders["promo"].unsubscribe_link, "https://promo.com/unsub")
 
 
 if __name__ == "__main__":

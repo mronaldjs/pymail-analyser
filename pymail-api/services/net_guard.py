@@ -61,6 +61,4 @@ def validate_imap_host(host: str) -> None:
             or addr.is_multicast
             or addr.is_unspecified
         ):
-            raise HostNotAllowedError(
-                f"host resolves to a disallowed address: {ip}"
-            )
+            raise HostNotAllowedError(f"host resolves to a disallowed address: {ip}")

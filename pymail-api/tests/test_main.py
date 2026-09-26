@@ -1,4 +1,3 @@
-
 from fastapi.testclient import TestClient
 
 import main
@@ -51,7 +50,9 @@ def test_analyze_auth_error_returns_structured_payload(monkeypatch):
     assert isinstance(body["detail"], str)
     # Testa com request_id propagado
     custom_id = "test-req-123"
-    response2 = client.post("/analyze", json=_valid_credentials_payload(), headers={"x-request-id": custom_id})
+    response2 = client.post(
+        "/analyze", json=_valid_credentials_payload(), headers={"x-request-id": custom_id}
+    )
     assert response2.status_code == 401
     body2 = response2.json()
     assert body2["error_code"] == "IMAP_AUTH_FAILED"
@@ -76,7 +77,9 @@ def test_analyze_unavailable_error_returns_structured_payload(monkeypatch):
     assert isinstance(body["detail"], str)
     # Testa com request_id propagado
     custom_id = "test-req-456"
-    response2 = client.post("/analyze", json=_valid_credentials_payload(), headers={"x-request-id": custom_id})
+    response2 = client.post(
+        "/analyze", json=_valid_credentials_payload(), headers={"x-request-id": custom_id}
+    )
     assert response2.status_code == 503
     body2 = response2.json()
     assert body2["error_code"] == "IMAP_UNAVAILABLE"
@@ -113,9 +116,7 @@ def test_rate_limit_returns_429_after_threshold():
         payload = _valid_credentials_payload()
         payload["host"] = "127.0.0.1"  # rejected by the guard → fast, no IMAP I/O
 
-        statuses = [
-            client.post("/analyze", json=payload).status_code for _ in range(6)
-        ]
+        statuses = [client.post("/analyze", json=payload).status_code for _ in range(6)]
     finally:
         main.limiter.enabled = False
 
