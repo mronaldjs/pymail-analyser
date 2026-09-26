@@ -41,9 +41,7 @@ def _build_psl_extractor(include_private_domains: bool) -> tldextract.TLDExtract
 _INCLUDE_PSL_PRIVATE_DOMAINS = _env_to_bool(
     "NORMALIZE_SOURCE_INCLUDE_PRIVATE_DOMAINS", default=False
 )
-_PSL_EXTRACTOR = _build_psl_extractor(
-    include_private_domains=_INCLUDE_PSL_PRIVATE_DOMAINS
-)
+_PSL_EXTRACTOR = _build_psl_extractor(include_private_domains=_INCLUDE_PSL_PRIVATE_DOMAINS)
 _SOURCE_GROUPING_MODE = "tenant" if _INCLUDE_PSL_PRIVATE_DOMAINS else "provider"
 
 
@@ -88,9 +86,7 @@ def _load_domain_list(filename: str, env_var: str) -> Tuple[str, ...]:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return ()
-    return tuple(
-        s.lower() for line in lines if (s := line.strip()) and not s.startswith("#")
-    )
+    return tuple(s.lower() for line in lines if (s := line.strip()) and not s.startswith("#"))
 
 
 # Domains associated with well-known services ("official" senders) and spam-prone
@@ -172,24 +168,24 @@ def _build_from_criteria(sender_set: set):
 # ---------------------------------------------------------------------------
 
 # Rank multipliers (applied to the base spam_score).
-_RANK_OFFICIAL_FACTOR = 0.18       # known official domain → strong down-weight
-_RANK_HIGH_UNSUB_FACTOR = 0.52     # frequent List-Unsubscribe → likely legit bulk
-_RANK_LOW_UNSUB_FACTOR = 1.18      # rarely offers unsubscribe → nudge up
-_RANK_SUSPICIOUS_FACTOR = 1.28     # suspicious TLD (and not official) → nudge up
-_RANK_DNS_TRUST_WEIGHT = 0.28      # scales the DNS-trust adjustment (±)
-_RANK_VT_PER_FLAG = 0.13           # per-VirusTotal-flag increase …
-_RANK_VT_CAP = 0.55                # … capped at this fraction
+_RANK_OFFICIAL_FACTOR = 0.18  # known official domain → strong down-weight
+_RANK_HIGH_UNSUB_FACTOR = 0.52  # frequent List-Unsubscribe → likely legit bulk
+_RANK_LOW_UNSUB_FACTOR = 1.18  # rarely offers unsubscribe → nudge up
+_RANK_SUSPICIOUS_FACTOR = 1.28  # suspicious TLD (and not official) → nudge up
+_RANK_DNS_TRUST_WEIGHT = 0.28  # scales the DNS-trust adjustment (±)
+_RANK_VT_PER_FLAG = 0.13  # per-VirusTotal-flag increase …
+_RANK_VT_CAP = 0.55  # … capped at this fraction
 
 # Unsubscribe-ratio thresholds for the rank multipliers.
-_UNSUB_RATIO_HIGH = 0.45           # ≥ → apply _RANK_HIGH_UNSUB_FACTOR
-_UNSUB_RATIO_LOW = 0.12            # < → apply _RANK_LOW_UNSUB_FACTOR
+_UNSUB_RATIO_HIGH = 0.45  # ≥ → apply _RANK_HIGH_UNSUB_FACTOR
+_UNSUB_RATIO_LOW = 0.12  # < → apply _RANK_LOW_UNSUB_FACTOR
 
 # spam_risk label thresholds.
-_RISK_VT_HIGH_FLAGS = 2            # ≥ VT flags → "high"
-_RISK_LOW_UNSUB_RATIO = 0.42       # ≥ (or official) → "low"
-_RISK_HIGH_UNSUB_RATIO = 0.15      # < (and not official, enough volume) → "high"
-_RISK_HIGH_MIN_EMAILS = 2          # min volume for the low-unsub "high" rule
-_RISK_HIGH_DNS_TRUST = -0.35       # ≤ (and not official) → "high"
+_RISK_VT_HIGH_FLAGS = 2  # ≥ VT flags → "high"
+_RISK_LOW_UNSUB_RATIO = 0.42  # ≥ (or official) → "low"
+_RISK_HIGH_UNSUB_RATIO = 0.15  # < (and not official, enough volume) → "high"
+_RISK_HIGH_MIN_EMAILS = 2  # min volume for the low-unsub "high" rule
+_RISK_HIGH_DNS_TRUST = -0.35  # ≤ (and not official) → "high"
 
 
 def _compute_rank_and_risk(
@@ -207,11 +203,7 @@ def _compute_rank_and_risk(
     # Accept either a raw email address ("user@host") or an already-extracted
     # domain string ("host").  Avoids a redundant _extract_domain call when the
     # caller already stripped the domain (the common code path).
-    domain = (
-        _extract_domain(domain)
-        if "@" in (domain or "")
-        else (domain or "").lower().strip()
-    )
+    domain = _extract_domain(domain) if "@" in (domain or "") else (domain or "").lower().strip()
     official = _is_official_domain(domain)
     suspicious = _is_suspicious_domain(domain)
 
@@ -241,11 +233,7 @@ def _compute_rank_and_risk(
         and email_count >= _RISK_HIGH_MIN_EMAILS
     ):
         risk = "high"
-    elif (
-        dns_trust_min is not None
-        and dns_trust_min <= _RISK_HIGH_DNS_TRUST
-        and not official
-    ):
+    elif dns_trust_min is not None and dns_trust_min <= _RISK_HIGH_DNS_TRUST and not official:
         risk = "high"
     else:
         risk = "medium"
@@ -283,9 +271,7 @@ _UNSUB_ANCHOR_RE = re.compile(
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 
 
-def _extract_unsubscribe_from_body(
-    html: Optional[str], text: Optional[str]
-) -> Optional[str]:
+def _extract_unsubscribe_from_body(html: Optional[str], text: Optional[str]) -> Optional[str]:
     """Procura link de unsubscribe no corpo (HTML ou texto) do e-mail.
 
     Estratégia:
@@ -302,12 +288,9 @@ def _extract_unsubscribe_from_body(
             anchor_clean = re.sub(r"<[^>]+>", " ", anchor_text)
             href_lower = href.lower()
             keyword_hit = bool(
-                _UNSUB_KEYWORDS_RE.search(anchor_clean)
-                or _UNSUB_KEYWORDS_RE.search(href_lower)
+                _UNSUB_KEYWORDS_RE.search(anchor_clean) or _UNSUB_KEYWORDS_RE.search(href_lower)
             )
-            if keyword_hit and (
-                href_lower.startswith(("http://", "https://", "mailto:"))
-            ):
+            if keyword_hit and (href_lower.startswith(("http://", "https://", "mailto:"))):
                 return href
 
     if text:
@@ -354,9 +337,7 @@ class EmailAnalyzer:
         criteria = _build_from_criteria(sender_set)
         uids = []
         for msg in mailbox.fetch(criteria, headers_only=True, mark_seen=False):
-            from_email = (
-                (msg.from_values.email or "").lower().strip() if msg.from_values else ""
-            )
+            from_email = (msg.from_values.email or "").lower().strip() if msg.from_values else ""
             if from_email in sender_set:
                 uids.append(msg.uid)
         return uids
@@ -365,9 +346,7 @@ class EmailAnalyzer:
     # Public API
     # ------------------------------------------------------------------
 
-    def analyze(
-        self, progress: Optional[Callable[[dict], None]] = None
-    ) -> AnalysisResponse:
+    def analyze(self, progress: Optional[Callable[[dict], None]] = None) -> AnalysisResponse:
         """Orchestrate the analysis: fetch + group, enrich reputation, then score.
 
         The IMAP connection is opened once, kept for the header fetch and the
@@ -423,9 +402,7 @@ class EmailAnalyzer:
     def _build_criteria(self):
         """Build the IMAP date-range search criterion from the credentials."""
         if self.credentials.start_date and self.credentials.end_date:
-            return A(
-                date_gte=self.credentials.start_date, date_lt=self.credentials.end_date
-            )
+            return A(date_gte=self.credentials.start_date, date_lt=self.credentials.end_date)
         days = self.credentials.days_limit if self.credentials.days_limit else 30
         return A(date_gte=date.today() - timedelta(days=days))
 
@@ -451,20 +428,12 @@ class EmailAnalyzer:
             # - Every message for the first 20 (immediate feedback for small inboxes)
             # - Every 5 messages up to 100 (smooth progress for medium inboxes)
             # - Every 10 messages beyond that (avoid saturating the stream)
-            should_report = (
-                total <= 20 or (total <= 100 and total % 5 == 0) or total % 10 == 0
-            )
+            should_report = total <= 20 or (total <= 100 and total % 5 == 0) or total % 10 == 0
             if progress and should_report:
-                progress(
-                    {"type": "progress", "phase": "imap_fetch", "fetched": total}
-                )
+                progress({"type": "progress", "phase": "imap_fetch", "fetched": total})
 
-            sender_email = (
-                msg.from_values.email if msg.from_values else "unknown@unknown.com"
-            )
-            sender_name = (
-                msg.from_values.name if msg.from_values else "Unknown Sender"
-            )
+            sender_email = msg.from_values.email if msg.from_values else "unknown@unknown.com"
+            sender_name = msg.from_values.name if msg.from_values else "Unknown Sender"
 
             _key = (sender_email, sender_name)
             source_key = _source_cache.get(_key)
@@ -562,9 +531,7 @@ class EmailAnalyzer:
             uid_list = list(uid_to_key.keys())
             scanned = 0
             try:
-                for body_msg in mailbox.fetch(
-                    A(uid=",".join(uid_list)), mark_seen=False
-                ):
+                for body_msg in mailbox.fetch(A(uid=",".join(uid_list)), mark_seen=False):
                     sk = uid_to_key.get(body_msg.uid)
                     if not sk:
                         continue
@@ -691,9 +658,7 @@ class EmailAnalyzer:
             # still unread, inflating spam_score. Treat the score as a ranking hint,
             # not a verdict (surfaced as such in the UI). A fuller signal would also
             # weigh message age / frequency; that is deliberately out of scope here.
-            open_rate_ratio = (
-                row["read_sum"] / row["email_count"] if row["email_count"] else 0.0
-            )
+            open_rate_ratio = row["read_sum"] / row["email_count"] if row["email_count"] else 0.0
             spam_score = row["email_count"] * (1 - open_rate_ratio) * 10
             total_spam_score += spam_score
             sender_emails_sorted = sorted(row["sender_emails_set"])
@@ -707,11 +672,7 @@ class EmailAnalyzer:
                 vt_total = None
                 domain_reputation = None
             else:
-                trusts = [
-                    dns_signals_to_trust(dns_cache[d])
-                    for d in domains
-                    if d in dns_cache
-                ]
+                trusts = [dns_signals_to_trust(dns_cache[d]) for d in domains if d in dns_cache]
                 dns_trust_min = min(trusts) if trusts else None
 
                 vm: Optional[int] = None
@@ -741,24 +702,18 @@ class EmailAnalyzer:
                     primary_domain=primary,
                     checked_domains=domains,
                     mx=primary_sig.get("mx"),
-                    spf=str(primary_sig.get("spf"))
-                    if primary_sig.get("spf") is not None
-                    else None,
+                    spf=str(primary_sig.get("spf")) if primary_sig.get("spf") is not None else None,
                     dmarc=str(primary_sig.get("dmarc"))
                     if primary_sig.get("dmarc") is not None
                     else None,
-                    dns_trust=round(dns_trust_min, 4)
-                    if dns_trust_min is not None
-                    else None,
+                    dns_trust=round(dns_trust_min, 4) if dns_trust_min is not None else None,
                     summary_pt=summary_pt,
                     summary_en=summary_en,
                     virustotal_malicious=vm if use_vt else None,
                     virustotal_suspicious=vs if use_vt else None,
                 )
 
-            unsub_ratio = (
-                row["unsub_count"] / row["email_count"] if row["email_count"] else 0.0
-            )
+            unsub_ratio = row["unsub_count"] / row["email_count"] if row["email_count"] else 0.0
             rank_score, spam_risk = _compute_rank_and_risk(
                 spam_score,
                 row["email_count"],
@@ -779,9 +734,7 @@ class EmailAnalyzer:
                     "rank_score": rank_score,
                     "spam_risk": spam_risk,
                     "domain_reputation": domain_reputation,
-                    "unsubscribe_link": _clean_unsubscribe_link(
-                        row["unsubscribe_link"]
-                    ),
+                    "unsubscribe_link": _clean_unsubscribe_link(row["unsubscribe_link"]),
                 }
             )
 
@@ -808,9 +761,7 @@ class EmailAnalyzer:
 
     def delete_emails(self, sender_emails: List[str]) -> Dict[str, int]:
         sender_set = {
-            sender.lower().strip()
-            for sender in sender_emails
-            if sender and sender.strip()
+            sender.lower().strip() for sender in sender_emails if sender and sender.strip()
         }
         if not sender_set:
             return {"deleted": 0}
@@ -842,9 +793,7 @@ class EmailAnalyzer:
 
     def archive_emails(self, sender_emails: List[str]) -> Dict[str, int]:
         sender_set = {
-            sender.lower().strip()
-            for sender in sender_emails
-            if sender and sender.strip()
+            sender.lower().strip() for sender in sender_emails if sender and sender.strip()
         }
         if not sender_set:
             return {"archived": 0, "not_archived": 0}

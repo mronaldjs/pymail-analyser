@@ -58,10 +58,7 @@ def _configure_logging() -> None:
             "filters": {"request_id": {"()": RequestIdLogFilter}},
             "formatters": {
                 "default": {
-                    "format": (
-                        "%(asctime)s %(levelname)s [%(request_id)s] "
-                        "%(name)s: %(message)s"
-                    )
+                    "format": ("%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s")
                 }
             },
             "handlers": {
@@ -77,9 +74,9 @@ def _configure_logging() -> None:
 
 
 # CORS Setup - use environment variable or default to localhost
-allowed_origins = os.getenv(
-    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8008"
-).split(",")
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8008").split(
+    ","
+)
 
 
 @asynccontextmanager
@@ -329,9 +326,7 @@ async def analyze_stream(credentials: IMAPCredentials, request: Request):
             except Exception as exc:
                 logger.exception("Error in /analyze/stream")
                 status_code, payload = _error_payload(exc, request)
-                await queue.put(
-                    {"type": "error", "status_code": status_code, "payload": payload}
-                )
+                await queue.put({"type": "error", "status_code": status_code, "payload": payload})
 
         task = asyncio.create_task(_run())
         try:
